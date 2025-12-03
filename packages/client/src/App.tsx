@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Button } from "./components/ui/button";
 
 function App() {
 
@@ -9,7 +10,12 @@ function App() {
       .then(res=>res.json())
       .then(data=>setMassage(data.message));
     },[]);
-    return <p className="font-bold p-4 text-3xl"> {message}</p>
+    return( 
+    <>
+    <p className="font-bold p-4 text-3xl"> {message}</p>
+    <Button>click me</Button>
+    </>
+    )
 
 }
 
