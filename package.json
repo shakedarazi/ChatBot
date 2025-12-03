@@ -3,17 +3,22 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
-
   "scripts": {
-    "dev":"bun run index.ts"
+    "dev": "bun run index.ts",
+    "format": "prettier --write .",
+    "prepare": "husky"
   },
-  
   "devDependencies": {
     "@types/bun": "latest",
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
-  "workspaces": ["packages/*"]
+  "workspaces": [
+    "packages/*"
+  ]
 }
