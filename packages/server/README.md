@@ -1,15 +1,15 @@
 # server
 
-To install dependencies:
+To install dependencies (client + server):
 
 ```bash
-bun install
+bun install (client , server, root)
 ```
 
 To run:
 
 ```bash
-bun run index.ts
+bun run dev
 ```
 
 This project was created using `bun init` in bun v1.3.3. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
