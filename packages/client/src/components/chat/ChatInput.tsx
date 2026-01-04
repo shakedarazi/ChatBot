@@ -1,6 +1,7 @@
+import type { KeyboardEvent } from 'react';
+import { useForm } from 'react-hook-form';
 import { FaArrowUp } from 'react-icons/fa';
 import { Button } from '../ui/button';
-import { useForm } from 'react-hook-form';
 
 export type ChatFormData = {
    prompt: string;
@@ -13,21 +14,21 @@ type Props = {
 const ChatInput = ({ onSubmit }: Props) => {
    const { register, handleSubmit, reset, formState } = useForm<ChatFormData>();
 
-   const handleFormSubmit = handleSubmit((data) => {
+   const submit = handleSubmit((data) => {
       reset({ prompt: '' });
       onSubmit(data);
    });
 
-   const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+   const handleKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
          e.preventDefault();
-         handleFormSubmit();
+         submit();
       }
    };
 
    return (
       <form
-         onSubmit={handleFormSubmit}
+         onSubmit={submit}
          onKeyDown={handleKeyDown}
          className="flex flex-col gap-2 items-end border-2 p-4 rounded-3xl"
       >
