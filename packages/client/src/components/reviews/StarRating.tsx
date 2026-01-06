@@ -1,7 +1,7 @@
 import { FaRegStar, FaStar } from 'react-icons/fa';
 
 type Props = {
-   value: number; // rating from 0 to 5
+   value: number;
 };
 
 const StarRating = ({ value }: Props) => {

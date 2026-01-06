@@ -13,7 +13,7 @@ export type GetReviewsResponse = {
    reviews: Review[];
 };
 
-export type SummarizeResponse = {
+export type SummaeizeResponse = {
    summary: string;
 };
 
@@ -26,7 +26,7 @@ export const reviewsApi = {
 
    summarizeReviews(productId: number) {
       return axios
-         .post<SummarizeResponse>(
+         .post<SummaeizeResponse>(
             `/api/products/${productId}/reviews/summarize`
          )
          .then((res) => res.data);

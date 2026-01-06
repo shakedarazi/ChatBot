@@ -1,12 +1,12 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import StarRating from './StarRating';
 import { HiSparkles } from 'react-icons/hi2';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '../ui/button';
 import ReviewSkeleton from './ReviewSkeleton';
-import StarRating from './StarRating';
 import {
-   type GetReviewsResponse,
    reviewsApi,
-   type SummarizeResponse,
+   type GetReviewsResponse,
+   type SummaeizeResponse,
 } from './reviewsApi';
 
 type Props = {
@@ -14,7 +14,7 @@ type Props = {
 };
 
 const ReviewList = ({ productId }: Props) => {
-   const summaryMutation = useMutation<SummarizeResponse>({
+   const summaryMutation = useMutation<SummaeizeResponse>({
       mutationFn: () => reviewsApi.summarizeReviews(productId),
    });
 
