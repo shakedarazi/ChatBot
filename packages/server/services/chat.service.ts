@@ -1,41 +1,42 @@
-import fs from 'fs';
-import path from 'path';
+// packages/server/services/chat.service.ts
 import { conversationRepository } from '../repositories/conversation.repository';
-import template from '../llm/prompts/chatbot.txt';
-import { llmClient } from '../llm/client';
-
-const parkInfo = fs.readFileSync(
-   path.join(__dirname, '..', 'llm', 'prompts', 'WonderWorld.md'),
-   'utf-8'
-);
-const instructions = template.replace('{{parkInfo}}', parkInfo);
+import { routeMessage } from './router.service';
 
 type ChatResponse = {
    id: string;
    message: string;
 };
 
-// Public interface
 export const chatService = {
    async sendMessage(
       prompt: string,
       conversationId: string
    ): Promise<ChatResponse> {
-      const response = await llmClient.generateText({
-         model: 'gpt-4o-mini',
-         instructions,
-         prompt,
-         temperature: 0.2,
-         maxTokens: 200,
-         previousResponseId:
-            conversationRepository.getLastResponseId(conversationId),
-      });
+      if (prompt.trim() === '/reset') {
+         await conversationRepository.resetAll();
+         return {
+            id: crypto.randomUUID(),
+            message: 'History reset. Starting a fresh chat.',
+         };
+      }
 
-      conversationRepository.setLastResponseId(conversationId, response.id);
+      const context = conversationRepository.getContext(conversationId);
+      const previousResponseId =
+         conversationRepository.getLastResponseId(conversationId);
 
-      return {
-         id: response.id,
-         message: response.text,
-      };
+      const routed = await routeMessage(prompt, context, previousResponseId);
+
+      conversationRepository.addTurn(conversationId, prompt, routed.message);
+
+      if (routed.responseId) {
+         conversationRepository.setLastResponseId(
+            conversationId,
+            routed.responseId
+         );
+      }
+
+      await conversationRepository.save();
+
+      return { id: crypto.randomUUID(), message: routed.message };
    },
 };
