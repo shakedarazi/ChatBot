@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkDown from 'react-markdown';
 
 export type Message = {
    content: string;
@@ -17,7 +17,7 @@ const ChatMessages = ({ messages }: Props) => {
       lastMessageRef.current?.scrollIntoView({ behavior: 'smooth' });
    }, [messages]);
 
-   const onCopyMessage = (e: React.ClipboardEvent) => {
+   const onCopyMessage = (e: React.ClipboardEvent<HTMLParagraphElement>) => {
       const selection = window.getSelection()?.toString().trim();
       if (selection) {
          e.preventDefault();
@@ -32,13 +32,13 @@ const ChatMessages = ({ messages }: Props) => {
                key={index}
                onCopy={onCopyMessage}
                ref={index === messages.length - 1 ? lastMessageRef : null}
-               className={`px-3 py-1 max-w-md rounded-xl prose ${
+               className={`px-3 py-1 max-w-md rounded-xl ${
                   message.role === 'user'
-                     ? 'bg-blue-600 text-white self-end'
-                     : 'bg-gray-100 text-black self-start'
+                     ? ' text-black self-end bg-blue-600'
+                     : ' text-black bg-gray-100 self-start'
                }`}
             >
-               <ReactMarkdown>{message.content}</ReactMarkdown>
+               <ReactMarkDown>{message.content}</ReactMarkDown>
             </div>
          ))}
       </div>
