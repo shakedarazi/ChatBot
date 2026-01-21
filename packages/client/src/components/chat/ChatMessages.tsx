@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import ReactMarkDown from 'react-markdown';
 
 export type Message = {
-   content: string;
    role: 'user' | 'bot';
+   content: string;
 };
 
 type Props = {
@@ -34,11 +34,13 @@ const ChatMessages = ({ messages }: Props) => {
                ref={index === messages.length - 1 ? lastMessageRef : null}
                className={`px-3 py-1 max-w-md rounded-xl ${
                   message.role === 'user'
-                     ? ' text-black self-end bg-blue-600'
-                     : ' text-black bg-gray-100 self-start'
+                     ? 'bg-blue-600 text-white self-end'
+                     : 'bg-gray-100 text-black self-start'
                }`}
             >
-               <ReactMarkDown>{message.content}</ReactMarkDown>
+               <div dir="auto">
+                  <ReactMarkDown>{message.content}</ReactMarkDown>
+               </div>
             </div>
          ))}
       </div>

@@ -1,0 +1,14 @@
+{
+  "77df2666-b2b1-4338-9fc1-c796ee0a82af": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "המסעדה הייתה סבבה אבל השירות לקוחות לא משהו, מה שכן המחירים קטלניים "
+      },
+      {
+        "role": "assistant",
+        "content": "Analyzing Review...\n\nSummary: המסעדה בסדר אבל השירות והמחיר מאכזבים.\nOverall Sentiment: Mixed\nScore: 4/10\n\nDetailed Aspects:\n  1. Food (Neutral): \"המסעדה הייתה סבבה\"\n  2. Service (Negative): \"השירות לקוחות לא משהו\"\n  3. Price (Negative): \"המחירים קטלניים\""
+      }
+    ]
+  }
+}
