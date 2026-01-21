@@ -1,4 +1,3 @@
-// packages/server/services/weather.service.ts
 type GeoResult = {
    name: string;
    latitude: number;
@@ -7,13 +6,20 @@ type GeoResult = {
    admin1?: string;
 };
 
-async function geocodeCity(city: string): Promise<GeoResult | null> {
+function hasHebrew(text: string): boolean {
+   return /[\u0590-\u05FF]/.test(text);
+}
+
+async function geocodeCityOnce(
+   city: string,
+   language: 'en' | 'he'
+): Promise<GeoResult | null> {
    const url =
       'https://geocoding-api.open-meteo.com/v1/search?' +
       new URLSearchParams({
          name: city,
-         count: '1',
-         language: 'en',
+         count: '5',
+         language,
          format: 'json',
       });
 
@@ -21,8 +27,10 @@ async function geocodeCity(city: string): Promise<GeoResult | null> {
    if (!res.ok) return null;
 
    const data = (await res.json()) as any;
-   const first = data?.results?.[0];
-   if (!first) return null;
+   const results = data?.results;
+   if (!Array.isArray(results) || results.length === 0) return null;
+
+   const first = results[0];
 
    return {
       name: first.name,
@@ -33,8 +41,51 @@ async function geocodeCity(city: string): Promise<GeoResult | null> {
    };
 }
 
-function weatherCodeToText(code: number): string {
-   const map: Record<number, string> = {
+async function geocodeCity(city: string): Promise<GeoResult | null> {
+   const clean = city.replace(/[!?.,]/g, '').trim();
+   const isHeb = hasHebrew(clean);
+
+   const firstLang: 'he' | 'en' = isHeb ? 'he' : 'en';
+   const secondLang: 'he' | 'en' = firstLang === 'he' ? 'en' : 'he';
+
+   const direct =
+      (await geocodeCityOnce(clean, firstLang)) ??
+      (await geocodeCityOnce(clean, secondLang));
+
+   if (direct) return direct;
+
+   const withIL = `${clean}, IL`;
+
+   return (
+      (await geocodeCityOnce(withIL, firstLang)) ??
+      (await geocodeCityOnce(withIL, secondLang))
+   );
+}
+
+function weatherCodeToText(code: number, lang: 'he' | 'en'): string {
+   const he: Record<number, string> = {
+      0: 'שמשי',
+      1: 'בהיר ברובו',
+      2: 'מעונן חלקית',
+      3: 'מעונן',
+      45: 'ערפל',
+      48: 'ערפל קפוא',
+      51: 'טפטוף קל',
+      53: 'טפטוף',
+      55: 'טפטוף חזק',
+      61: 'גשם קל',
+      63: 'גשם',
+      65: 'גשם חזק',
+      71: 'שלג קל',
+      73: 'שלג',
+      75: 'שלג כבד',
+      80: 'ממטרים קלים',
+      81: 'ממטרים',
+      82: 'ממטרים חזקים',
+      95: 'סופת רעמים',
+   };
+
+   const en: Record<number, string> = {
       0: 'Sunny',
       1: 'Mostly clear',
       2: 'Partly cloudy',
@@ -55,14 +106,23 @@ function weatherCodeToText(code: number): string {
       82: 'Heavy showers',
       95: 'Thunderstorm',
    };
-   return map[code] ?? 'Unknown';
+
+   return (
+      (lang === 'he' ? he : en)[code] ?? (lang === 'he' ? 'לא ידוע' : 'Unknown')
+   );
 }
 
 export async function getWeather(city: string): Promise<string> {
    const cleanCity = city.replace(/[!?.,]/g, '').trim();
+   const lang: 'he' | 'en' = hasHebrew(cleanCity) ? 'he' : 'en';
 
    const geo = await geocodeCity(cleanCity);
-   if (!geo) return `Could not find city "${cleanCity}". Try another name.`;
+
+   if (!geo) {
+      return lang === 'he'
+         ? `לא הצלחתי למצוא את העיר "${cleanCity}". נסי שם אחר או כתיב באנגלית.`
+         : `Could not find city "${cleanCity}". Try another name.`;
+   }
 
    const url =
       'https://api.open-meteo.com/v1/forecast?' +
@@ -74,7 +134,11 @@ export async function getWeather(city: string): Promise<string> {
       });
 
    const res = await fetch(url);
-   if (!res.ok) return 'Failed to fetch weather data.';
+   if (!res.ok) {
+      return lang === 'he'
+         ? 'שגיאה בשליפת נתוני מזג האוויר.'
+         : 'Failed to fetch weather data.';
+   }
 
    const data = (await res.json()) as any;
    const temp = data?.current?.temperature_2m;
@@ -82,11 +146,17 @@ export async function getWeather(city: string): Promise<string> {
    const wind = data?.current?.wind_speed_10m;
 
    if (typeof temp !== 'number' || typeof code !== 'number') {
-      return 'Could not parse weather response.';
+      return lang === 'he'
+         ? 'שגיאה בפענוח נתוני מזג האוויר.'
+         : 'Could not parse weather response.';
    }
 
-   const desc = weatherCodeToText(code);
-   const place = geo.admin1 ? `${geo.name}, ${geo.admin1}` : `${geo.name}`;
+   const desc = weatherCodeToText(code, lang);
+   const place = geo.admin1 ? `${geo.name}` : geo.name;
 
-   return `${place}: ${temp}°C, ${desc}${typeof wind === 'number' ? `, wind ${wind} km/h` : ''}`;
+   if (lang === 'he') {
+      return `${place}: ${temp}°C, ${desc}${typeof wind === 'number' ? `, רוח ${wind} קמ"ש` : ''}`;
+   }
+
+   return `the weather in ${place} : ${temp}°C, ${typeof wind === 'number' ? `, wind ${wind} km/h` : ''}`;
 }

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { chatService } from '../services/chat.service';
-import z from 'zod';
+import {z} from 'zod';
 
 const chatSchema = z.object({
    prompt: z
@@ -10,6 +10,7 @@ const chatSchema = z.object({
       .max(1000, 'Prompt is too long. (max 1000 characters)'),
    conversationId: z.string().uuid(),
 });
+
 export const chatController = {
    async sendMessage(req: Request, res: Response) {
       const parseResult = chatSchema.safeParse(req.body);

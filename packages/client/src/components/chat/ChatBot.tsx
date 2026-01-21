@@ -9,7 +9,6 @@ import popSound from '@/assets/sounds/pop.mp3';
 
 const popAudio = new Audio(popSound);
 popAudio.volume = 0.2;
-
 const notificationAudio = new Audio(notificationSound);
 notificationAudio.volume = 0.2;
 
@@ -21,6 +20,7 @@ const ChatBot = () => {
    const [messages, setMessages] = useState<Message[]>([]);
    const [isBotTyping, setIsBotTyping] = useState(false);
    const [error, setError] = useState('');
+
    const conversationId = useRef(crypto.randomUUID());
 
    const onSubmit = async ({ prompt }: ChatFormData) => {
@@ -38,6 +38,7 @@ const ChatBot = () => {
             ...prev,
             { content: data.message, role: 'bot' },
          ]);
+         setIsBotTyping(false);
          notificationAudio.play();
       } catch (error) {
          console.error(error);
