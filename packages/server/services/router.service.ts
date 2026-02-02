@@ -7,6 +7,7 @@ import { getExchangeRate } from './exchange.service';
 import { generalChat } from './general-chat.service';
 import { translateWordProblemToExpression } from './math-translator.service';
 import { reviewAnalyzerService } from './review-analyzer.service';
+import { callPythonSentiment } from '../llm/python-sentiment-client';
 
 export type RouteResult = { message: string; responseId?: string };
 
@@ -38,16 +39,67 @@ export async function routeMessage(
             ? decision.parameters.reviewText
             : userInput;
 
+      // HIGH CONFIDENCE (>= 0.8): existing full analysis path
+      if (decision.confidence >= 0.8) {
+         try {
+            const result =
+               await reviewAnalyzerService.analyzeReview(reviewText);
+            console.log(
+               '[review] selfCorrectionApplied:',
+               result.selfCorrected
+            );
+            return { message: result.formatted };
+         } catch (err) {
+            console.error('[review] analyzeReview error:', err);
+            const r = await generalChat(context, userInput, previousResponseId);
+            return { message: r.message, responseId: r.responseId };
+         }
+      }
+
+      // LOW CONFIDENCE (< 0.8): verify with Python sentiment before expensive ABSA
       try {
-         const result = await reviewAnalyzerService.analyzeReview(reviewText);
+         const start = Date.now();
+         const verification = await callPythonSentiment(reviewText);
+         console.log(
+            `[benchmark] python-sentiment latency=${Date.now() - start}ms`
+         );
+         console.log(
+            `[review] verification sentiment=${verification.sentiment} confidence=${verification.confidence}`
+         );
 
-         console.log('[review] selfCorrectionApplied:', result.selfCorrected);
-
-         // Note: no responseId here (stateless analysis, no conversational continuity needed)
-         return { message: result.formatted };
+         if (verification.confidence >= 0.6) {
+            // Verification passed - proceed to full analysis
+            try {
+               const result =
+                  await reviewAnalyzerService.analyzeReview(reviewText);
+               console.log(
+                  '[review] selfCorrectionApplied:',
+                  result.selfCorrected
+               );
+               return { message: result.formatted };
+            } catch (err) {
+               console.error(
+                  '[review] analyzeReview error after verification:',
+                  err
+               );
+               const r = await generalChat(
+                  context,
+                  userInput,
+                  previousResponseId
+               );
+               return { message: r.message, responseId: r.responseId };
+            }
+         } else {
+            // Verification failed - not a clear review, fallback to generalChat
+            console.log(
+               '[review] verification failed (low confidence), falling back to generalChat'
+            );
+            const r = await generalChat(context, userInput, previousResponseId);
+            return { message: r.message, responseId: r.responseId };
+         }
       } catch (err) {
-         console.error('[review] analyzeReview error:', err);
-         // graceful fallback (still comply with system stability)
+         console.error('[review] Python verification error:', err);
+         // Fallback to generalChat (existing pattern)
          const r = await generalChat(context, userInput, previousResponseId);
          return { message: r.message, responseId: r.responseId };
       }
