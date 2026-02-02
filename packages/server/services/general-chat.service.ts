@@ -1,5 +1,6 @@
 // packages/server/services/general-chat.service.ts
 import type { ChatMessage } from '../repositories/conversation.repository';
+import { callOllama } from '../llm/ollama-client';
 import { llmClient } from '../llm/client';
 import { GENERAL_CHAT_PROMPT } from '../prompts';
 
@@ -37,9 +38,9 @@ function isBlockedByGuardrails(input: string): boolean {
 export async function generalChat(
    context: ChatMessage[],
    userInput: string,
-   previousResponseId?: string
+   _previousResponseId?: string // kept for signature compatibility, not used with Ollama
 ): Promise<GeneralChatResult> {
-   // Guardrails: block unsafe requests deterministically
+   // Guardrails: block unsafe requests deterministically (before calling any LLM)
    if (isBlockedByGuardrails(userInput)) {
       return {
          message: 'I cannot process this request: due to safety protocols.',
@@ -52,18 +53,42 @@ export async function generalChat(
       ? `${transcript}\nUser: ${userInput}\nAssistant:`
       : `User: ${userInput}\nAssistant:`;
 
-   const response = await llmClient.generateText({
-      model: 'gpt-4.1',
-      instructions: GENERAL_CHAT_PROMPT,
-      prompt,
-      temperature: 0.7,
-      maxTokens: 300,
-      // previousResponseId is used ONLY here to preserve conversational continuity
-      previousResponseId,
-   });
+   const start = Date.now();
+   try {
+      const response = await callOllama({
+         prompt,
+         system: GENERAL_CHAT_PROMPT,
+         temperature: 0.7,
+         timeoutMs: 30000, // 30s for local model
+      });
+      console.log(`[benchmark] general-chat latency=${Date.now() - start}ms`);
 
-   return {
-      message: response.text,
-      responseId: response.id,
-   };
+      return {
+         message: response.text,
+         responseId: crypto.randomUUID(),
+      };
+   } catch (err: any) {
+      console.log(
+         '[general-chat] Ollama error, falling back to OpenAI:',
+         err.message
+      );
+
+      // Fallback to OpenAI on Ollama error (timeout/network)
+      const openaiStart = Date.now();
+      const openaiResponse = await llmClient.generateText({
+         model: 'gpt-4.1',
+         instructions: GENERAL_CHAT_PROMPT,
+         prompt,
+         temperature: 0.7,
+         maxTokens: 300,
+      });
+      console.log(
+         `[benchmark] general-chat-openai-fallback latency=${Date.now() - openaiStart}ms`
+      );
+
+      return {
+         message: openaiResponse.text,
+         responseId: openaiResponse.id,
+      };
+   }
 }

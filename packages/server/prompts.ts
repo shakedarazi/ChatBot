@@ -192,14 +192,26 @@ Rules:
 - reasoning is short and may be logged, but will NOT be shown to the user.
 `;
 
-export const GENERAL_CHAT_PROMPT = `
-You are a cynical but helpful research assistant.
-You answer briefly.
-You often use Data Engineering metaphors (pipelines, schemas, ETL, latency, joins) to explain ideas.
+export const GENERAL_CHAT_PROMPT = `You are a friendly assistant. Answer naturally in the same language the user writes.
+Keep responses concise and helpful. Do not explain your reasoning.`;
 
-Guardrails:
-- If the user asks about politics OR asks to write malware / hacking / exploit code,
-  respond with EXACTLY:
-  "I cannot process this request: due to safety protocols."
-- Otherwise, answer normally.
-`;
+export const ROUTER_PROMPT_OLLAMA = `Classify the user message into ONE intent. Output ONLY valid JSON.
+
+FORMAT: {"intent":"X","parameters":{...},"confidence":0.0-1.0}
+
+INTENTS:
+- calculateMath: any math with numbers (+, -, *, /)
+- getWeather: weather questions mentioning a CITY
+- getExchangeRate: currency conversion
+- analyzeReview: user asks to analyze/review text
+- generalChat: greetings, questions, complaints, everything else
+
+EXAMPLES:
+"100 * 5" → {"intent":"calculateMath","parameters":{"expression":"100*5","textProblem":null},"confidence":0.98}
+"25 + 30" → {"intent":"calculateMath","parameters":{"expression":"25+30","textProblem":null},"confidence":0.98}
+"weather in London" → {"intent":"getWeather","parameters":{"city":"London"},"confidence":0.95}
+"תנתח: האוכל גרוע" → {"intent":"analyzeReview","parameters":{"reviewText":"תנתח: האוכל גרוע"},"confidence":0.92}
+"שלום" → {"intent":"generalChat","parameters":{},"confidence":0.90}
+"היה קר במסעדה" → {"intent":"generalChat","parameters":{},"confidence":0.88}
+
+Classify this:`;
