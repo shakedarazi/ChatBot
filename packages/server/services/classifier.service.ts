@@ -11,6 +11,7 @@ const routerResponseSchema = z.object({
       'calculateMath',
       'getExchangeRate',
       'analyzeReview',
+      'getProductInformation',
       'generalChat',
    ]),
    parameters: z.record(z.any()).default({}),
@@ -59,6 +60,7 @@ function normalizeIntent(x: any): RouterDecision['intent'] {
       x === 'calculateMath' ||
       x === 'getExchangeRate' ||
       x === 'analyzeReview' ||
+      x === 'getProductInformation' ||
       x === 'generalChat'
       ? x
       : 'generalChat';

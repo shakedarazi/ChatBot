@@ -1,0 +1,22 @@
+[Sample log - run with USE_PLAN=true to capture actual output]
+
+Query: What's the weather in Berlin and the GBP to ILS exchange rate?
+
+--- Plan ---
+{"plan":[{"tool":"getWeather","parameters":{"city":"Berlin"}},{"tool":"getExchangeRate","parameters":{"from":"GBP","to":"ILS"}}],"final_answer_synthesis_required":true}
+
+--- Intermediate Results ---
+[executor] step 1/2: getWeather
+[benchmark] tool-getWeather latency=XXXms
+[executor] tool getWeather result: Berlin weather: ...
+
+[executor] step 2/2: getExchangeRate
+[benchmark] tool-getExchangeRate latency=XXXms
+[executor] tool getExchangeRate result: 1 GBP = X.XX ILS
+
+[executor] synthesizing final answer
+[benchmark] synthesis latency=XXXms
+[benchmark] total-plan latency=XXXms
+
+--- Final Answer ---
+In Berlin, the current weather is [details]. The GBP to ILS exchange rate is approximately X.XX shekels per pound.

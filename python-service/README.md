@@ -1,20 +1,22 @@
-# Python Sentiment Analysis Microservice
+# Python Microservice
 
-A FastAPI-based sentiment analysis service using Hugging Face transformers.
+FastAPI service: sentiment analysis + knowledge base search (ChromaDB).
 
 ## Setup
 
 ### 1. Create Virtual Environment
 
+Use **Python 3.12** (PyTorch does not fully support 3.13 yet):
+
 ```bash
 cd python-service
-python -m venv venv
+py -3.12 -m venv .venv
 
 # Windows
-venv\Scripts\activate
+.venv\Scripts\activate
 
 # macOS/Linux
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 2. Install Dependencies
@@ -23,7 +25,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Note: First run will download the sentiment model (~250MB) to `~/.cache/huggingface/`.
+Note: First run downloads the sentiment model (~250MB) and indexing loads sentence-transformers + ChromaDB.
 
 ### 3. Start the Service
 
@@ -57,6 +59,33 @@ Analyze sentiment of text.
   "confidence": 0.87
 }
 ```
+
+### POST /search_kb
+
+Search the knowledge base for product chunks.
+
+**Request:**
+```json
+{
+  "query": "laptop battery",
+  "top_k": 3
+}
+```
+
+**Response:**
+```json
+{
+  "chunks": [
+    {
+      "text": "Battery: Up to 17 hours...",
+      "metadata": { "source": "laptop_pro_x1.txt", "chunk_index": 0 },
+      "score": 0.85
+    }
+  ]
+}
+```
+
+**KB indexing:** Run `python index_kb.py --rebuild` from `python-service` (loads from `../data/products`). ChromaDB stored at `./chroma_db` by default.
 
 ### GET /health
 

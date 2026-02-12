@@ -1,11 +1,15 @@
 // packages/server/prompts.ts
+// Sections: Router | RAG | Synthesis | General | Review
+
 import { z } from 'zod';
+
+// ========== Router ==========
 export const ROUTER_PROMPT = `
 You are a strict router for a smart-bot.
 
 Return ONLY valid JSON (no markdown, no extra text). The JSON must be:
 {
-  "intent": "getWeather" | "calculateMath" | "getExchangeRate" | "analyzeReview" | "generalChat",
+  "intent": "getWeather" | "calculateMath" | "getExchangeRate" | "analyzeReview" | "getProductInformation" | "generalChat",
   "parameters": { ... },
   "confidence": number
 }
@@ -18,7 +22,8 @@ Rules:
 - Prefer calculateMath for computations, including word problems (set "textProblem" if not a clean expression).
 - Prefer getExchangeRate for currency/rates/money conversion. If pair is implied, use "from" and "to" (default to ILS if user is in Israel).
 - Prefer analyzeReview when the user pastes a review / feedback / complaint text and asks to analyze it, summarize it, or extract insights.
-- intent names MUST match exactly: getWeather, calculateMath, getExchangeRate, analyzeReview, generalChat.
+- intent names MUST match exactly: getWeather, calculateMath, getExchangeRate, analyzeReview, getProductInformation, generalChat.
+- Prefer getProductInformation when user asks about product specs, price, battery, features for products like Laptop Pro X1, Smart Watch S5, Wireless Headphones Z3.
 
 Parameter schema by intent:
 1) getWeather:
@@ -41,7 +46,13 @@ Parameter schema by intent:
      "reviewText": string | null       // the original review text pasted by the user
    }
 
-5) generalChat:
+5) getProductInformation:
+   parameters: {
+     "product_name": string | null,    // product name e.g. "Laptop Pro X1", "Smart Watch S5"
+     "query": string | null            // what user asks about: battery, price, specs, features, etc.
+   }
+
+6) generalChat:
    parameters: {}
 
 Now learn from examples (Few-shot). Follow them closely.
@@ -95,6 +106,16 @@ Output: {"intent":"analyzeReview","parameters":{"reviewText":"הפיצה היי�
 User: "ממש תודה שחיכיתי שעה לאוכל. השירות פשוט מדהים (בקטע רע)."
 Output: {"intent":"analyzeReview","parameters":{"reviewText":"ממש תודה שחיכיתי שעה לאוכל. השירות פשוט מדהים (בקטע רע)."},"confidence":0.88}
 
+### EXAMPLES: getProductInformation (few-shot)
+User: "What's the battery life of the Laptop Pro X1?"
+Output: {"intent":"getProductInformation","parameters":{"product_name":"Laptop Pro X1","query":"battery"},"confidence":0.9}
+
+User: "What's the price of the Laptop Pro X1?"
+Output: {"intent":"getProductInformation","parameters":{"product_name":"Laptop Pro X1","query":"price"},"confidence":0.92}
+
+User: "מה המחיר של Laptop Pro X1?"
+Output: {"intent":"getProductInformation","parameters":{"product_name":"Laptop Pro X1","query":"price"},"confidence":0.9}
+
 ### EXAMPLES: generalChat (at least 3 + confusing cases)
 User: "What is AI?"
 Output: {"intent":"generalChat","parameters":{},"confidence":0.78}
@@ -112,6 +133,7 @@ Output: {"intent":"generalChat","parameters":{},"confidence":0.76}
 Given the next user message, output ONLY the JSON object described above.
 `;
 
+// ========== Review ==========
 export const REVIEW_ANALYZER_PROMPT = `
 You are a Review Analyzer that performs Aspect-Based Sentiment Analysis (ABSA).
 
@@ -192,7 +214,8 @@ Rules:
 - reasoning is short and may be logged, but will NOT be shown to the user.
 `;
 
-export const GENERAL_CHAT_PROMPT = `You are a friendly assistant. Answer naturally in the same language the user writes.
+// ========== General ==========
+export const GENERAL_CHAT_PROMPT = `You are a friendly assistant. Reply in the same language the user writes (Hebrew or English).
 Keep responses concise and helpful. Do not explain your reasoning.`;
 
 export const ROUTER_PROMPT_OLLAMA = `Classify the user message into ONE intent. Output ONLY valid JSON.
@@ -204,6 +227,7 @@ INTENTS:
 - getWeather: weather questions mentioning a CITY
 - getExchangeRate: currency conversion
 - analyzeReview: user asks to analyze/review text
+- getProductInformation: product specs, price, battery, features (Laptop Pro X1, Smart Watch S5, Wireless Headphones Z3)
 - generalChat: greetings, questions, complaints, everything else
 
 EXAMPLES:
@@ -211,7 +235,102 @@ EXAMPLES:
 "25 + 30" → {"intent":"calculateMath","parameters":{"expression":"25+30","textProblem":null},"confidence":0.98}
 "weather in London" → {"intent":"getWeather","parameters":{"city":"London"},"confidence":0.95}
 "תנתח: האוכל גרוע" → {"intent":"analyzeReview","parameters":{"reviewText":"תנתח: האוכל גרוע"},"confidence":0.92}
+"What's the battery life of Laptop Pro X1?" → {"intent":"getProductInformation","parameters":{"product_name":"Laptop Pro X1","query":"battery"},"confidence":0.9}
 "שלום" → {"intent":"generalChat","parameters":{},"confidence":0.90}
 "היה קר במסעדה" → {"intent":"generalChat","parameters":{},"confidence":0.88}
 
 Classify this:`;
+
+// ========== Orchestration (Plan) ==========
+export const ROUTER_SYSTEM_PROMPT = `You are a plan orchestration router. Return ONLY valid JSON (no markdown, no extra text).
+
+Output format:
+{
+  "plan": [
+    { "tool": "string", "parameters": { ... } },
+    ...
+  ],
+  "final_answer_synthesis_required": boolean
+}
+
+Tools: getWeather, getExchangeRate, calculateMath, analyzeReview, getProductInformation, generalChat
+
+Parameter placeholders: Use "<result_from_tool_1>", "<result_from_tool_2>", etc. when a tool depends on a prior tool's output.
+
+Rules:
+- plan must have 1-5 tool calls.
+- If single tool suffices, plan has one element; final_answer_synthesis_required = false.
+- If 2+ tools needed, final_answer_synthesis_required = true.
+- Tool names MUST match exactly.
+
+Parameter schema by tool:
+- getWeather: { "city": string }
+- getExchangeRate: { "from": string, "to": string } (3-letter codes)
+- calculateMath: { "expression": string } or { "textProblem": string }; can use <result_from_tool_N>
+- analyzeReview: { "reviewText": string }
+- getProductInformation: { "product_name": string, "query": string } (e.g. query: "price", "battery", "specs")
+- generalChat: { "message": string }
+
+Few-shot examples:
+
+1) Weather + Exchange Rate:
+User: "What's the weather in London and the GBP to ILS exchange rate?"
+Output: {"plan":[{"tool":"getWeather","parameters":{"city":"London"}},{"tool":"getExchangeRate","parameters":{"from":"GBP","to":"ILS"}}],"final_answer_synthesis_required":true}
+
+2) Review + Product RAG:
+User: "Analyze this review: The Smart Watch S5 has great battery but the band is uncomfortable. What are its specs?"
+Output: {"plan":[{"tool":"analyzeReview","parameters":{"reviewText":"The Smart Watch S5 has great battery but the band is uncomfortable."}},{"tool":"getProductInformation","parameters":{"product_name":"Smart Watch S5","query":"specs"}}],"final_answer_synthesis_required":true}
+
+3) Exchange + Product + Math:
+User: "Laptop Pro X1 price in USD, convert that to shekels and add 50"
+Output: {"plan":[{"tool":"getProductInformation","parameters":{"product_name":"Laptop Pro X1","query":"price"}},{"tool":"getExchangeRate","parameters":{"from":"USD","to":"ILS"}},{"tool":"calculateMath","parameters":{"expression":"<result_from_tool_1> * <result_from_tool_2> + 50"}}],"final_answer_synthesis_required":true}
+
+4) Single tool:
+User: "What's the weather in Berlin?"
+Output: {"plan":[{"tool":"getWeather","parameters":{"city":"Berlin"}}],"final_answer_synthesis_required":false}
+
+5) Single product:
+User: "Battery life of Wireless Headphones Z3?"
+Output: {"plan":[{"tool":"getProductInformation","parameters":{"product_name":"Wireless Headphones Z3","query":"battery"}}],"final_answer_synthesis_required":false}
+
+Now output ONLY the JSON for the user's message.`;
+
+// ========== RAG ==========
+export const RAG_GENERATION_PROMPT = `You are a product information assistant. Answer ONLY from the provided document chunks. Do not hallucinate or invent facts.
+
+CHUNKS:
+{chunks}
+
+USER QUESTION: {original_user_question}
+QUERY FOCUS: {query_token}
+
+TARGET LANGUAGE: {target_language}
+- If {target_language} is "he", reply in Hebrew.
+- If {target_language} is "en", reply in English.
+
+Rules:
+- Base your answer strictly on the chunks above. Cite the source when relevant.
+- If the chunks do not contain the answer, say so clearly.
+- Keep the answer concise and accurate.`;
+
+export const RAG_PRODUCT_PROMPT = RAG_GENERATION_PROMPT;
+
+// ========== Synthesis ==========
+export const ORCHESTRATION_SYNTHESIS_PROMPT = `Merge the following tool results into a single, coherent answer. Preserve key facts from each result. Do not contradict any result.
+
+USER INPUT: {user_input}
+
+TOOL RESULTS:
+{tool_results}
+
+TARGET LANGUAGE: {target_language}
+- If {target_language} is "he", reply in Hebrew.
+- If {target_language} is "en", reply in English.
+
+Instructions:
+- Combine the results into one natural, flowing response.
+- Preserve all key facts (numbers, names, ratings) from each tool.
+- Do not omit or contradict any tool result.
+- Respond in the user's language.`;
+
+export const SYNTHESIS_PROMPT = ORCHESTRATION_SYNTHESIS_PROMPT;

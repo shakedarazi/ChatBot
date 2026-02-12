@@ -1,0 +1,22 @@
+[Sample log - run with USE_PLAN=true to capture actual output]
+
+Query: Analyze this review: The Smart Watch S5 has great battery but the band is uncomfortable. What are its specs?
+
+--- Plan ---
+{"plan":[{"tool":"analyzeReview","parameters":{"reviewText":"..."}},{"tool":"getProductInformation","parameters":{"product_name":"Smart Watch S5","query":"specs"}}],"final_answer_synthesis_required":true}
+
+--- Intermediate Results ---
+[executor] step 1/2: analyzeReview
+[benchmark] tool-analyzeReview latency=XXXms
+
+[executor] step 2/2: getProductInformation
+[product-info] product="Smart Watch S5" query="specs"
+[benchmark] kb-search latency=XXXms
+[benchmark] rag-generation latency=XXXms
+
+[executor] synthesizing final answer
+[benchmark] synthesis latency=XXXms
+[benchmark] total-plan latency=XXXms
+
+--- Final Answer ---
+[Combined review analysis and product specs]

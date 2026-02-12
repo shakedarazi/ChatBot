@@ -3,6 +3,7 @@ import type { ChatMessage } from '../repositories/conversation.repository';
 import { callOllama } from '../llm/ollama-client';
 import { llmClient } from '../llm/client';
 import { GENERAL_CHAT_PROMPT } from '../prompts';
+import { detectLanguage } from '../utils/language';
 
 type GeneralChatResult = {
    message: string;
@@ -53,15 +54,34 @@ export async function generalChat(
       ? `${transcript}\nUser: ${userInput}\nAssistant:`
       : `User: ${userInput}\nAssistant:`;
 
+   const targetLanguage = detectLanguage(userInput);
+
    const start = Date.now();
    try {
-      const response = await callOllama({
+      let response = await callOllama({
          prompt,
          system: GENERAL_CHAT_PROMPT,
          temperature: 0.7,
          timeoutMs: 30000, // 30s for local model
       });
       console.log(`[benchmark] general-chat latency=${Date.now() - start}ms`);
+
+      // Retry once if response is in wrong language
+      if (detectLanguage(response.text) !== targetLanguage) {
+         const langInstruction =
+            targetLanguage === 'he'
+               ? ' IMPORTANT: Reply in Hebrew.'
+               : ' IMPORTANT: Reply in English.';
+         const retryResponse = await callOllama({
+            prompt,
+            system: GENERAL_CHAT_PROMPT + langInstruction,
+            temperature: 0.7,
+            timeoutMs: 30000,
+         });
+         if (detectLanguage(retryResponse.text) === targetLanguage) {
+            response = retryResponse;
+         }
+      }
 
       return {
          message: response.text,
@@ -74,10 +94,14 @@ export async function generalChat(
       );
 
       // Fallback to OpenAI on Ollama error (timeout/network)
+      const langInstruction =
+         targetLanguage === 'he'
+            ? ' IMPORTANT: Reply in Hebrew.'
+            : ' IMPORTANT: Reply in English.';
       const openaiStart = Date.now();
       const openaiResponse = await llmClient.generateText({
          model: 'gpt-4.1',
-         instructions: GENERAL_CHAT_PROMPT,
+         instructions: GENERAL_CHAT_PROMPT + langInstruction,
          prompt,
          temperature: 0.7,
          maxTokens: 300,

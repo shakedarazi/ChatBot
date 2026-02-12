@@ -1,5 +1,5 @@
 # python-service/server.py
-# FastAPI sentiment analysis microservice using Hugging Face transformers
+# FastAPI microservice: sentiment analysis + KB search
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
-app = FastAPI(title="Sentiment Analysis Service")
+app = FastAPI(title="ChatBot Python Service")
 
 # Load sentiment model on startup (cached in memory)
 logger.info("Loading sentiment analysis model...")
@@ -29,6 +29,39 @@ class AnalyzeRequest(BaseModel):
 class AnalyzeResponse(BaseModel):
     sentiment: str  # "POSITIVE" or "NEGATIVE"
     confidence: float
+
+
+class SearchKBRequest(BaseModel):
+    query: str
+    top_k: int = 3
+
+
+class SearchKBChunkMetadata(BaseModel):
+    source: str
+    chunk_index: int
+
+
+class SearchKBChunk(BaseModel):
+    text: str
+    metadata: SearchKBChunkMetadata
+    score: float
+
+
+class SearchKBResponse(BaseModel):
+    chunks: list[SearchKBChunk]
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize KB service on startup"""
+    try:
+        from kb_service import kb_service
+        if kb_service.initialize():
+            logger.info("KB service initialized successfully")
+        else:
+            logger.warning("KB service initialization failed (empty or missing ChromaDB)")
+    except Exception as e:
+        logger.error(f"KB service init error: {e}", exc_info=True)
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
@@ -57,6 +90,49 @@ async def analyze_sentiment(request: AnalyzeRequest):
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "model": "distilbert-base-uncased-finetuned-sst-2-english"}
+
+
+@app.post("/search_kb", response_model=SearchKBResponse)
+async def search_kb(request: SearchKBRequest):
+    """
+    Search the knowledge base for relevant chunks.
+    Returns { chunks: [...] } matching python-kb-client.ts contract.
+    On empty/failed: returns { chunks: [] } with 200 (never 500). Logs all failures.
+    """
+    try:
+        from kb_service import kb_service
+
+        if not kb_service._initialized:
+            logger.warning("[search_kb] KB not initialized, returning empty chunks")
+            return SearchKBResponse(chunks=[])
+
+        results = kb_service.search(request.query, request.top_k)
+
+        # Map to exact TS contract: { text, metadata: { source, chunk_index }, score }
+        chunks = []
+        for r in results:
+            meta = r.get("metadata") or {}
+            source = meta.get("source") if isinstance(meta.get("source"), str) else str(meta.get("source", ""))
+            chunk_index = meta.get("chunk_index")
+            if chunk_index is not None and not isinstance(chunk_index, int):
+                try:
+                    chunk_index = int(chunk_index)
+                except (ValueError, TypeError):
+                    chunk_index = 0
+            else:
+                chunk_index = 0
+
+            chunks.append(SearchKBChunk(
+                text=str(r.get("text", "")),
+                metadata=SearchKBChunkMetadata(source=source, chunk_index=chunk_index),
+                score=float(r.get("score", 0.0)),
+            ))
+
+        return SearchKBResponse(chunks=chunks)
+
+    except Exception as e:
+        logger.error(f"[search_kb] KB search error: {e}", exc_info=True)
+        return SearchKBResponse(chunks=[])
 
 
 if __name__ == "__main__":

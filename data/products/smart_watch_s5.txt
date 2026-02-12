@@ -1,0 +1,53 @@
+Product: Smart Watch S5
+Category: Wearables
+Manufacturer: FitTech
+
+SPECIFICATIONS:
+- Display: 1.9-inch AMOLED, 484x396 resolution, always-on
+- Processor: Dual-core 1.8GHz
+- RAM: 2GB
+- Storage: 32GB internal storage
+- Battery: 410mAh, up to 48 hours typical use
+- Water Resistance: 5ATM (swimming approved)
+- Weight: 42g (without band)
+- Dimensions: 44mm x 38mm x 10.7mm
+
+FEATURES:
+- Heart rate monitoring (24/7)
+- Blood oxygen (SpO2) measurement
+- ECG app (FDA cleared)
+- Sleep tracking with sleep stages
+- GPS + GLONASS for outdoor activities
+- 100+ workout modes
+- Fall detection with emergency SOS
+- NFC for contactless payments
+- Music storage and playback (offline)
+- Compatible with iOS and Android
+
+CONNECTIVITY:
+- Bluetooth 5.3
+- Wi-Fi 802.11 b/g/n
+- LTE model available (+$100)
+
+PRICE:
+$449 USD (GPS model)
+$549 USD (GPS + LTE model)
+Bands sold separately: $49-$149
+
+WARRANTY:
+- 1-year limited warranty
+- Extended protection plan: $79 for 2 additional years
+
+BATTERY LIFE DETAILS:
+- Normal use: 48 hours
+- Always-on display: 36 hours
+- GPS tracking active: 12 hours
+- Power saving mode: up to 72 hours
+- Full charge time: 1.5 hours
+
+REVIEWS SUMMARY:
+Average rating: 4.6/5 stars
+- Best-in-class health features
+- Beautiful display
+- Some users want longer battery life
+- Excellent fitness tracking accuracy

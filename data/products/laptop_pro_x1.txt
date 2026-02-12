@@ -1,0 +1,39 @@
+Product: Laptop Pro X1 (מחשב נייד Pro X1)
+Category: Laptops
+Manufacturer: TechCorp
+
+SPECIFICATIONS:
+- Display: 14-inch Retina display, 2560x1600 resolution
+- Processor: Apple M3 Pro chip, 12-core CPU, 18-core GPU
+- RAM: 18GB unified memory
+- Storage: 512GB SSD (configurable up to 2TB)
+- Battery: Up to 17 hours of web browsing
+- Weight: 1.55 kg (3.4 lbs)
+- Dimensions: 31.26 x 22.12 x 1.55 cm
+
+FEATURES:
+- MagSafe 3 charging port
+- Three Thunderbolt 4 ports
+- HDMI port
+- SDXC card slot
+- Headphone jack
+- Backlit Magic Keyboard with Touch ID
+- Force Touch trackpad
+- Six-speaker sound system with Spatial Audio
+- 1080p FaceTime HD camera
+
+PRICE:
+$1,999 USD (base configuration)
+- 36GB RAM upgrade: +$400
+- 1TB SSD upgrade: +$200
+- 2TB SSD upgrade: +$600
+
+WARRANTY:
+- 1-year limited warranty included
+- AppleCare+ available for $199/year or $299 one-time
+
+REVIEWS SUMMARY:
+Average rating: 4.7/5 stars
+- Praised for performance and battery life
+- Some users note limited port selection
+- Excellent build quality and display

@@ -8,6 +8,7 @@ import { generalChat } from './general-chat.service';
 import { translateWordProblemToExpression } from './math-translator.service';
 import { reviewAnalyzerService } from './review-analyzer.service';
 import { callPythonSentiment } from '../llm/python-sentiment-client';
+import { getProductInformation } from './product-info.service';
 
 export type RouteResult = { message: string; responseId?: string };
 
@@ -125,6 +126,37 @@ export async function routeMessage(
          return { message: r.message, responseId: r.responseId };
       }
       return { message: getExchangeRate(from, to) };
+   }
+
+   if (decision.intent === 'getProductInformation') {
+      const productName =
+         typeof decision.parameters?.product_name === 'string' &&
+         decision.parameters.product_name.trim()
+            ? decision.parameters.product_name.trim()
+            : null;
+      const query =
+         typeof decision.parameters?.query === 'string' &&
+         decision.parameters.query.trim()
+            ? decision.parameters.query.trim()
+            : 'specs';
+
+      if (!productName) {
+         const r = await generalChat(context, userInput, previousResponseId);
+         return { message: r.message, responseId: r.responseId };
+      }
+
+      try {
+         const message = await getProductInformation(
+            productName,
+            query,
+            userInput
+         );
+         return { message };
+      } catch (err: any) {
+         console.error('[product-info] error:', err.message);
+         const r = await generalChat(context, userInput, previousResponseId);
+         return { message: r.message, responseId: r.responseId };
+      }
    }
 
    if (decision.intent === 'calculateMath') {

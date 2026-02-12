@@ -38,8 +38,12 @@ export async function checkOllamaHealth(): Promise<{
          return { available: false, models: [] };
       }
 
-      const data = await response.json();
-      const models = (data.models || []).map((m: any) => m.name || m.model);
+      const data = (await response.json()) as {
+         models?: Array<{ name?: string; model?: string }>;
+      };
+      const models = (data.models || [])
+         .map((m) => m.name || m.model || '')
+         .filter(Boolean) as string[];
 
       ollamaAvailable = true;
       availableModels = models;
@@ -160,8 +164,8 @@ export async function callOllama({
          );
       }
 
-      const data = await response.json();
-      return { text: data.response };
+      const data = (await response.json()) as { response?: string };
+      return { text: data.response ?? '' };
    } finally {
       clearTimeout(timeout);
    }
