@@ -23,15 +23,21 @@ export async function callPythonSentiment(
       });
 
       if (!response.ok) {
-         const errorData = await response.json().catch(() => ({}));
+         const errorData = (await response.json().catch(() => ({}))) as {
+            error?: string;
+         };
          throw new Error(
             errorData.error || `Python service error: ${response.status}`
          );
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as {
+         sentiment: string;
+         confidence: number;
+      };
+      const sentiment = data.sentiment === 'NEGATIVE' ? 'NEGATIVE' : 'POSITIVE';
       return {
-         sentiment: data.sentiment,
+         sentiment,
          confidence: data.confidence,
       };
    } finally {

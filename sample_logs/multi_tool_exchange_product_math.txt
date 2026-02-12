@@ -1,0 +1,26 @@
+[Sample log - run with USE_PLAN=true to capture actual output]
+
+Query: Laptop Pro X1 price in USD, convert that to shekels and add 50
+
+--- Plan ---
+{"plan":[{"tool":"getProductInformation","parameters":{"product_name":"Laptop Pro X1","query":"price"}},{"tool":"getExchangeRate","parameters":{"from":"USD","to":"ILS"}},{"tool":"calculateMath","parameters":{"expression":"<result_from_tool_1> * <result_from_tool_2> + 50"}}],"final_answer_synthesis_required":true}
+
+--- Intermediate Results ---
+[executor] step 1/3: getProductInformation
+[product-info] product="Laptop Pro X1" query="price"
+[executor] resolved params: {"product_name":"Laptop Pro X1","query":"price"}
+→ result: 1999
+
+[executor] step 2/3: getExchangeRate
+[executor] resolved params: {"from":"USD","to":"ILS"}
+→ result: 3.67 (rate)
+
+[executor] step 3/3: calculateMath
+[executor] resolved params: {"expression":"1999 * 3.67 + 50"}
+→ result: ~7386
+
+[executor] synthesizing final answer
+[benchmark] total-plan latency=XXXms
+
+--- Final Answer ---
+The Laptop Pro X1 costs $1,999 USD. At the current rate, that's approximately X,XXX ILS. Adding 50 gives approximately 7,386 ILS total.

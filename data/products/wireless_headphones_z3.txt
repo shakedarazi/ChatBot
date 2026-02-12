@@ -1,0 +1,37 @@
+Product: Wireless Headphones Z3
+Category: Audio
+Manufacturer: SoundWave
+
+SPECIFICATIONS:
+- Driver Size: 40mm dynamic drivers
+- Frequency Response: 20Hz - 20kHz
+- Impedance: 32 ohms
+- Connectivity: Bluetooth 5.2, 3.5mm audio cable
+- Battery: 30 hours playtime (ANC on), 40 hours (ANC off)
+- Weight: 250g
+- Charging: USB-C, 10-minute quick charge = 3 hours playback
+
+FEATURES:
+- Active Noise Cancellation (ANC) with 3 levels
+- Transparency mode for ambient sound
+- Multipoint connection (2 devices simultaneously)
+- Touch controls on ear cups
+- Built-in microphone for calls
+- Foldable design with carrying case
+- Voice assistant support (Siri, Google Assistant, Alexa)
+- Wear detection - auto pause when removed
+
+PRICE:
+$299 USD
+Available colors: Midnight Black, Pearl White, Navy Blue
+
+WARRANTY:
+- 2-year manufacturer warranty
+- Extended warranty available: $49 for 3 years total
+
+REVIEWS SUMMARY:
+Average rating: 4.5/5 stars
+- Excellent noise cancellation
+- Comfortable for long listening sessions
+- Some users report app connectivity issues
+- Great sound quality for the price
