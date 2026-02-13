@@ -1,22 +1,43 @@
-# ChatBot
+# 🤖 ChatBot
 
-Multi-intent chatbot with RAG (product info), plan orchestration, and bilingual (HE/EN) support.
+A multi-intent chatbot that routes user queries to the right tools, uses RAG for product info, and supports Hebrew and English.
 
+## ✨ Key Features
 
-## Prerequisites
+- **🧭 Intent routing** — Weather, exchange rates, math, review analysis, product info, general chat
+- **📚 RAG (Retrieval-Augmented Generation)** — Answers product questions from `data/products/` via ChromaDB + OpenAI
+- **🔗 Plan orchestration** — Multi-step flows (e.g. "price + convert + add 50") when `USE_PLAN=true`
+- **🌐 Bilingual** — Replies in the user's language (Hebrew or English)
 
-- **Ollama** (optional): Local LLM for router/planner. [Install](https://ollama.ai/download), then `ollama pull llama3.2 (cmd)`
-- **Python 3.9+** with pip
+## ⚙️ How It Works
+
+1. **User message** → Classified by router (Ollama or OpenAI)
+2. **Single intent** → One tool: weather, exchange rate, math, review analysis, product info, or general chat
+3. **Product info** → Python service searches ChromaDB, then OpenAI answers from retrieved chunks
+4. **Complex query** (with `USE_PLAN=true`) → Planner creates a multi-step plan, tools run in order, results synthesized into one answer
+
+## 🛠️ Tech Stack
+
+| Layer | Stack |
+|-------|-------|
+| Frontend | React, Vite |
+| Backend | Bun, Express, TypeScript |
+| AI / ML | Python (FastAPI), ChromaDB, sentence-transformers, transformers |
+| LLM | Ollama (local) + OpenAI (fallback, RAG, synthesis) |
+
+## 📋 Prerequisites
+
+- **Ollama** (optional): Local LLM for router/planner. [Install](https://ollama.ai/download), then `ollama pull llama3.2`
+- **Python 3.12** with pip (use 3.12 — PyTorch doesn't fully support 3.13)
 - **OpenAI API key** (required)
 
-## Ollama Setup
+### 🦙 Ollama Setup
 
 1. Install Ollama from https://ollama.ai/download
-2. `ollama pull llama3.2` (& set `OLLAMA_MODEL`)
+2. `ollama pull llama3.2` (or set `OLLAMA_MODEL`)
 3. Verify: `curl http://localhost:11434/api/tags`
 
-
-## Installation & Run
+## 🚀 Installation & Run
 
 ### 1. Install Dependencies
 
@@ -29,10 +50,10 @@ bun install
 
 Create `packages/server/.env`:
 
-| Variable | Required for runnig | Notes |
+| Variable | Required | Notes |
 |----------|----------|-------|
-| `OPENAI_API_KEY` | Yes | For RAG, synthesis, fallback |
-| `DATABASE_URL` | Yes | Prisma connection |
+| `OPENAI_API_KEY` | ✅ | For RAG, synthesis, fallback |
+| `DATABASE_URL` | ✅ | Prisma connection |
 | `PY_SERVICE_URL` | No | Default `http://localhost:8000` |
 | `OLLAMA_URL` | No | Default `http://localhost:11434` |
 | `OLLAMA_MODEL` | No | Default `llama3.2` |
@@ -49,8 +70,6 @@ py -3.12 -m venv .venv
 pip install -r requirements.txt
 ```
 
-
-
 ### 4. Knowledge Base Indexing
 
 ```bash
@@ -62,32 +81,30 @@ python index_kb.py --rebuild
 
 ```bash
 # Terminal 1: Python service
-cd python-service && uvicorn server:app --reload
+cd python-service
+.\.venv\Scripts\activate
+uvicorn server:app --reload --host 0.0.0.0 --port 8000
 
-# Terminal 2: TypeScript server
+# Terminal 2: TypeScript server + client
 bun run dev
 ```
 
-## Folder Structure
+## 📁 Folder Structure
 
 | Path | Purpose |
 |------|---------|
 | `packages/server/` | TypeScript server, orchestration, tools |
 | `packages/client/` | Frontend chat UI |
 | `python-service/` | Python microservice: sentiment, /search_kb |
-| `data/products/` | Product docs (3–5 .txt files), you can change it|
-| `sample_logs/` | Multi-tool execution logs for understanding |
-| `docs/` | Architecture, validation, cost estimation, verification for working |
+| `data/products/` | Product docs (3–5 .txt files) |
+| `sample_logs/` | Multi-tool execution logs |
+| `docs/` | Architecture, validation, verification |
 
-See [docs/repo_map.md](docs/repo_map.md) for project navigation.
+📖 See [docs/repo_map.md](docs/repo_map.md) for project navigation.
 
-## Links
+## 📎 Links
 
 - [Server README](packages/server/README.md) — architecture, tools, benchmarks
 - [docs/architecture.md](docs/architecture.md) — flow diagrams
 - [docs/validation_queries.md](docs/validation_queries.md) — orchestration test scenarios
-
-## Environment Variables
-
-- `DEFAULT_LOCALE`: Override language (`he` or `en`)
-- `USE_PLAN`: Set to `true` to enable plan orchestration (default: off)
+- [docs/verification_guide.md](docs/verification_guide.md) — step-by-step verification
