@@ -4,6 +4,7 @@
 
 import os
 import sys
+import shutil
 import argparse
 import logging
 from pathlib import Path
@@ -96,17 +97,14 @@ def index_documents(rebuild: bool = False, data_dir: str = DATA_DIR):
     model = SentenceTransformer(EMBEDDING_MODEL)
     logger.info("Model loaded")
 
+    # Handle rebuild flag — wipe entire ChromaDB directory to avoid orphan segment folders
+    if rebuild and os.path.exists(CHROMA_DB_PATH):
+        shutil.rmtree(CHROMA_DB_PATH)
+        logger.info(f"Deleted ChromaDB directory: {CHROMA_DB_PATH}")
+
     # Initialize ChromaDB
     logger.info(f"Initializing ChromaDB at: {CHROMA_DB_PATH}")
     client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-
-    # Handle rebuild flag
-    if rebuild:
-        try:
-            client.delete_collection(COLLECTION_NAME)
-            logger.info(f"Deleted existing collection: {COLLECTION_NAME}")
-        except Exception:
-            pass  # Collection doesn't exist
 
     # Create collection
     collection = client.get_or_create_collection(
