@@ -138,7 +138,7 @@ sequenceDiagram
 
 ### Where Chunking Happens
 
-Chunking is done in `python-service/index_kb.py` before embedding. Documents are loaded from `data/products/*.txt`.
+Chunking is done in `services/python/index_kb.py` before embedding. Documents are loaded from `data/products/*.txt`.
 
 ### Chunking Strategy
 

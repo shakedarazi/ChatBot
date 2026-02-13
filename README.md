@@ -48,7 +48,7 @@ bun install
 
 ### 2. Environment
 
-Create `packages/server/.env`:
+Create `apps/server/.env`:
 
 | Variable | Required | Notes |
 |----------|----------|-------|
@@ -64,7 +64,7 @@ Create `packages/server/.env`:
 ### 3. Python Service Dependencies
 
 ```bash
-cd python-service
+cd services/python
 py -3.12 -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
@@ -73,7 +73,7 @@ pip install -r requirements.txt
 ### 4. Knowledge Base Indexing
 
 ```bash
-cd python-service
+cd services/python
 python index_kb.py --rebuild
 ```
 
@@ -81,11 +81,11 @@ python index_kb.py --rebuild
 
 ```bash
 # Terminal 1: Python service
-cd python-service
+cd services/python
 .\.venv\Scripts\activate
 uvicorn server:app --reload --host 0.0.0.0 --port 8000
 
-# Terminal 2: TypeScript server + client
+# Terminal 2: TypeScript server + client (from repo root)
 bun run dev
 ```
 
@@ -93,18 +93,18 @@ bun run dev
 
 | Path | Purpose |
 |------|---------|
-| `packages/server/` | TypeScript server, orchestration, tools |
-| `packages/client/` | Frontend chat UI |
-| `python-service/` | Python microservice: sentiment, /search_kb |
+| `apps/server/` | TypeScript server, orchestration, tools |
+| `apps/client/` | Frontend chat UI |
+| `services/python/` | Python microservice: sentiment, /search_kb |
 | `data/products/` | Product docs (3–5 .txt files) |
-| `sample_logs/` | Multi-tool execution logs |
+| `examples/sample_logs/` | Multi-tool execution logs |
 | `docs/` | Architecture, validation, verification |
 
 📖 See [docs/repo_map.md](docs/repo_map.md) for project navigation.
 
 ## 📎 Links
 
-- [Server README](packages/server/README.md) — architecture, tools, benchmarks
+- [Server README](apps/server/README.md) — architecture, tools, benchmarks
 - [docs/architecture.md](docs/architecture.md) — flow diagrams
 - [docs/validation_queries.md](docs/validation_queries.md) — orchestration test scenarios
 - [docs/verification_guide.md](docs/verification_guide.md) — step-by-step verification
