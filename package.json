@@ -1,10 +1,9 @@
 {
   "name": "ChatBot",
-  "module": "index.ts",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run index.ts",
+    "dev": "bun run scripts/dev.ts",
     "format": "prettier --write .",
     "prepare": "husky"
   },
@@ -20,6 +19,6 @@
     "typescript": "^5"
   },
   "workspaces": [
-    "packages/*"
+    "apps/*"
   ]
 }
