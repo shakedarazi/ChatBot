@@ -48,15 +48,15 @@ This shifts correctness from model memory to the retrieval and grounding step. T
 
 ### Responsibilities
 
-| Component | Role |
-|-----------|------|
-| **API layer** | Receives user message, returns assistant reply. Stateless. |
-| **Chat service** | Branches on USE_PLAN: planner path or router path. |
-| **Router** | Classifies intent; dispatches to tools. Uses Ollama first, OpenAI fallback. |
+| Component                | Role                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| **API layer**            | Receives user message, returns assistant reply. Stateless.                             |
+| **Chat service**         | Branches on USE_PLAN: planner path or router path.                                     |
+| **Router**               | Classifies intent; dispatches to tools. Uses Ollama first, OpenAI fallback.            |
 | **Product-info service** | Builds KB query, calls Python /search_kb, formats chunks, calls OpenAI for generation. |
-| **Python service** | Embeds query, queries ChromaDB, returns chunks. Hosts sentiment pipeline. |
-| **ChromaDB** | Stores embeddings and chunk text. Persistent on disk. |
-| **OpenAI** | RAG answer generation (gpt-4.1), router fallback, synthesis. |
+| **Python service**       | Embeds query, queries ChromaDB, returns chunks. Hosts sentiment pipeline.              |
+| **ChromaDB**             | Stores embeddings and chunk text. Persistent on disk.                                  |
+| **OpenAI**               | RAG answer generation (gpt-4.1), router fallback, synthesis.                           |
 
 ### Stateless vs Stateful
 
@@ -84,11 +84,11 @@ This shifts correctness from model memory to the retrieval and grounding step. T
 7. Python: SentenceTransformer encodes query → 384-dim vector.
 8. ChromaDB: collection.query(embedding, n_results=3) → top-3 by cosine similarity.
 9. Python returns chunks with text, metadata (source, chunk_index), score.
-10. Product-info: if chunks empty → "I couldn't find information..."
-11. Product-info: formatChunks → concatenate with source labels.
-12. RAG_PRODUCT_PROMPT filled with chunks, question, query_token, target_language.
-13. OpenAI generateText(prompt, temperature=0.3, maxTokens=500).
-14. Response returned to user.
+10.   Product-info: if chunks empty → "I couldn't find information..."
+11.   Product-info: formatChunks → concatenate with source labels.
+12.   RAG_PRODUCT_PROMPT filled with chunks, question, query_token, target_language.
+13.   OpenAI generateText(prompt, temperature=0.3, maxTokens=500).
+14.   Response returned to user.
 
 ### Mermaid Sequence Diagram
 
@@ -209,15 +209,15 @@ Target language (he/en) is set in the RAG prompt. No separate translation step.
 
 ## Limitations & Tradeoffs
 
-| Area | Limitation |
-|------|------------|
-| **Retrieval** | No score cutoff; weak chunks can affect output |
-| **Chunk size** | 400 words may cut mid-sentence or split tables |
-| **Context** | Only 3 chunks; no reranking or expansion |
-| **Scalability** | Python single process; ChromaDB embedded, no sharding |
-| **Latency** | Sequential: embed → query → OpenAI |
-| **Indexing** | Manual run; no live update on doc change |
-| **Fallback** | Empty retrieval → generic message; no follow-up retrieval |
+| Area            | Limitation                                                |
+| --------------- | --------------------------------------------------------- |
+| **Retrieval**   | No score cutoff; weak chunks can affect output            |
+| **Chunk size**  | 400 words may cut mid-sentence or split tables            |
+| **Context**     | Only 3 chunks; no reranking or expansion                  |
+| **Scalability** | Python single process; ChromaDB embedded, no sharding     |
+| **Latency**     | Sequential: embed → query → OpenAI                        |
+| **Indexing**    | Manual run; no live update on doc change                  |
+| **Fallback**    | Empty retrieval → generic message; no follow-up retrieval |
 
 ---
 
