@@ -51,7 +51,7 @@ pip install -r requirements.txt
 
 Create `packages/server/.env`:
 
-| Variable | Required | Notes |
+| Variable | Required for runnig | Notes |
 |----------|----------|-------|
 | `OPENAI_API_KEY` | Yes | For RAG, synthesis, fallback |
 | `DATABASE_URL` | Yes | Prisma connection |

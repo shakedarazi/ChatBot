@@ -46,6 +46,8 @@ __pycache__
 # IntelliJ based IDEs
 .idea
 .cursor
+.vscode
+
 
 # Finder (MacOS) folder config
 .DS_Store
