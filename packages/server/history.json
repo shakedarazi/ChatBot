@@ -254,5 +254,53 @@
         "content": "Hello! How can I help you today?"
       }
     ]
+  },
+  "a05e73db-1e8c-4187-9fda-5573cbdc6694": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "היי מה נשמע ?"
+      },
+      {
+        "role": "assistant",
+        "content": "היי! הכל טוב, תודה. איך אפשר לעזור?"
+      }
+    ]
+  },
+  "de599e83-8d6a-48aa-b604-f9ed9118eed3": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather in Berlin and the GBP to ILS exchange rate?"
+      },
+      {
+        "role": "assistant",
+        "content": "The current weather in Berlin is 1.9°C with a wind speed of 8 km/h. The exchange rate from GBP to ILS is 4.7."
+      },
+      {
+        "role": "user",
+        "content": "Laptop Pro X1 costs how much in USD? Convert that to shekels and add 50."
+      },
+      {
+        "role": "assistant",
+        "content": "The Laptop Pro X1 costs 1 USD. Using an exchange rate of 3.75, this amount converts to 3.75 shekels. After adding 50, the total is 53.75 shekels."
+      },
+      {
+        "role": "user",
+        "content": "Laptop Pro X1 costs how much in USD? Convert that to shekels and add 50."
+      },
+      {
+        "role": "assistant",
+        "content": "The Laptop Pro X1 costs 1 USD. Converting this amount to shekels at an exchange rate of 3.75 gives you 3.75 shekels. After adding 50, the total is 53.75 shekels."
+      },
+      {
+        "role": "user",
+        "content": "What are the specs of the Wireless Headphones Z3?"
+      },
+      {
+        "role": "assistant",
+        "content": "The specs of the Wireless Headphones Z3 are as follows (Source: wireless_headphones_z3.txt):\n\n- Driver Size: 40mm dynamic drivers\n- Frequency Response: 20Hz - 20kHz\n- Impedance: 32 ohms\n- Connectivity: Bluetooth 5.2, 3.5mm audio cable\n- Battery: 30 hours playtime (ANC on), 40 hours (ANC off)\n- Weight: 250g\n- Charging: USB-C, 10-minute quick charge = 3 hours playback"
+      }
+    ]
   }
 }
