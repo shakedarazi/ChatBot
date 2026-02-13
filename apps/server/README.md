@@ -34,6 +34,7 @@ This project uses **Ollama** for local LLM inference with OpenAI as fallback.
 ### Startup Behavior
 
 On server start, the system:
+
 1. Checks Ollama availability via `GET http://localhost:11434/api/tags`
 2. Lists available models
 3. If Ollama is unreachable → logs warning, uses OpenAI fallback
@@ -54,15 +55,15 @@ curl http://localhost:11434/api/tags
 
 Place `.env` in `apps/server/` (loaded deterministically at startup).
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENAI_API_KEY` | (required) | OpenAI API key for fallback |
-| `DATABASE_URL` | (required) | Prisma database connection |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | `llama3.2` | Ollama model for router/chat |
-| `PY_SERVICE_URL` | `http://localhost:8000` | Python sentiment + KB service URL |
-| `USE_PLAN` | (unset=off) | When `true`, enables plan orchestration |
-| `DEFAULT_LOCALE` | (auto) | Override language: `he` or `en` |
+| Variable         | Default                  | Description                             |
+| ---------------- | ------------------------ | --------------------------------------- |
+| `OPENAI_API_KEY` | (required)               | OpenAI API key for fallback             |
+| `DATABASE_URL`   | (required)               | Prisma database connection              |
+| `OLLAMA_URL`     | `http://localhost:11434` | Ollama server URL                       |
+| `OLLAMA_MODEL`   | `llama3.2`               | Ollama model for router/chat            |
+| `PY_SERVICE_URL` | `http://localhost:8000`  | Python sentiment + KB service URL       |
+| `USE_PLAN`       | (unset=off)              | When `true`, enables plan orchestration |
+| `DEFAULT_LOCALE` | (auto)                   | Override language: `he` or `en`         |
 
 ---
 
@@ -86,38 +87,38 @@ Benchmarks measure end-to-end latency for each component. Run 5 requests per com
 
 ### Timer Locations
 
-| Component | File | Timer Wraps | Log Format |
-|-----------|------|-------------|------------|
-| Router (Ollama) | `classifier.service.ts` | `callOllama()` | `[benchmark] router-ollama latency=XXXms` |
-| Router (OpenAI) | `classifier.service.ts` | OpenAI fallback | `[benchmark] router-openai latency=XXXms` |
-| Planner | `planner.service.ts` | Ollama/OpenAI | `[benchmark] router-planner latency=XXXms` |
-| KB Search | `product-info.service.ts` | `searchKB()` | `[benchmark] kb-search latency=XXXms` |
-| RAG Generation | `product-info.service.ts` | OpenAI | `[benchmark] rag-generation latency=XXXms` |
-| Synthesis | `plan-executor.service.ts` | OpenAI | `[benchmark] synthesis latency=XXXms` |
-| Total Plan | `plan-executor.service.ts` | Full orchestration | `[benchmark] total-plan latency=XXXms` |
-| General Chat | `general-chat.service.ts` | `callOllama()` | `[benchmark] general-chat latency=XXXms` |
-| Sentiment | `router.service.ts` | `callPythonSentiment()` | `[benchmark] python-sentiment latency=XXXms` |
+| Component       | File                       | Timer Wraps             | Log Format                                   |
+| --------------- | -------------------------- | ----------------------- | -------------------------------------------- |
+| Router (Ollama) | `classifier.service.ts`    | `callOllama()`          | `[benchmark] router-ollama latency=XXXms`    |
+| Router (OpenAI) | `classifier.service.ts`    | OpenAI fallback         | `[benchmark] router-openai latency=XXXms`    |
+| Planner         | `planner.service.ts`       | Ollama/OpenAI           | `[benchmark] router-planner latency=XXXms`   |
+| KB Search       | `product-info.service.ts`  | `searchKB()`            | `[benchmark] kb-search latency=XXXms`        |
+| RAG Generation  | `product-info.service.ts`  | OpenAI                  | `[benchmark] rag-generation latency=XXXms`   |
+| Synthesis       | `plan-executor.service.ts` | OpenAI                  | `[benchmark] synthesis latency=XXXms`        |
+| Total Plan      | `plan-executor.service.ts` | Full orchestration      | `[benchmark] total-plan latency=XXXms`       |
+| General Chat    | `general-chat.service.ts`  | `callOllama()`          | `[benchmark] general-chat latency=XXXms`     |
+| Sentiment       | `router.service.ts`        | `callPythonSentiment()` | `[benchmark] python-sentiment latency=XXXms` |
 
 ### Results (N=5)
 
-| Component | Avg Latency | Notes |
-|-----------|-------------|-------|
-| Router (Ollama) | TBD ms | llama3.2, localhost |
-| Router (OpenAI) | TBD ms | gpt-4.1, fallback |
-| Planner (Ollama) | TBD ms | plan orchestration |
-| KB Search | TBD ms | Python /search_kb |
-| RAG Generation | TBD ms | OpenAI |
-| Synthesis | TBD ms | OpenAI |
-| General Chat | TBD ms | llama3.2, localhost |
-| Sentiment | TBD ms | distilbert, localhost |
+| Component        | Avg Latency | Notes                 |
+| ---------------- | ----------- | --------------------- |
+| Router (Ollama)  | TBD ms      | llama3.2, localhost   |
+| Router (OpenAI)  | TBD ms      | gpt-4.1, fallback     |
+| Planner (Ollama) | TBD ms      | plan orchestration    |
+| KB Search        | TBD ms      | Python /search_kb     |
+| RAG Generation   | TBD ms      | OpenAI                |
+| Synthesis        | TBD ms      | OpenAI                |
+| General Chat     | TBD ms      | llama3.2, localhost   |
+| Sentiment        | TBD ms      | distilbert, localhost |
 
 ### Model Comparison (Ollama vs OpenAI)
 
-| Use Case | Ollama | OpenAI | Trade-off |
-|----------|--------|--------|-----------|
-| Router | $0, lower latency | ~$0.01/1K tokens | Use Ollama when available |
-| Planner | $0 | ~$0.01/1K tokens | Ollama may have lower planning accuracy |
-| RAG / Synthesis | N/A | Required | OpenAI for grounded answers |
+| Use Case        | Ollama            | OpenAI           | Trade-off                               |
+| --------------- | ----------------- | ---------------- | --------------------------------------- |
+| Router          | $0, lower latency | ~$0.01/1K tokens | Use Ollama when available               |
+| Planner         | $0                | ~$0.01/1K tokens | Ollama may have lower planning accuracy |
+| RAG / Synthesis | N/A               | Required         | OpenAI for grounded answers             |
 
 **Cost/Accuracy:** Local (Ollama) offers zero cost and lower latency for router/planner but may have lower accuracy on complex plans. Cloud (OpenAI) costs ~$0.01/1K tokens with higher accuracy. Recommended: Ollama for router/planner when available; OpenAI for RAG, synthesis, and fallback.
 

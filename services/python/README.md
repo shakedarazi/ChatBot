@@ -46,17 +46,19 @@ uvicorn server:app --host 0.0.0.0 --port 8000 --reload
 Analyze sentiment of text.
 
 **Request:**
+
 ```json
 {
-  "text": "The food was amazing but the service was terrible"
+   "text": "The food was amazing but the service was terrible"
 }
 ```
 
 **Response:**
+
 ```json
 {
-  "sentiment": "NEGATIVE",
-  "confidence": 0.87
+   "sentiment": "NEGATIVE",
+   "confidence": 0.87
 }
 ```
 
@@ -65,23 +67,25 @@ Analyze sentiment of text.
 Search the knowledge base for product chunks.
 
 **Request:**
+
 ```json
 {
-  "query": "laptop battery",
-  "top_k": 3
+   "query": "laptop battery",
+   "top_k": 3
 }
 ```
 
 **Response:**
+
 ```json
 {
-  "chunks": [
-    {
-      "text": "Battery: Up to 17 hours...",
-      "metadata": { "source": "laptop_pro_x1.txt", "chunk_index": 0 },
-      "score": 0.85
-    }
-  ]
+   "chunks": [
+      {
+         "text": "Battery: Up to 17 hours...",
+         "metadata": { "source": "laptop_pro_x1.txt", "chunk_index": 0 },
+         "score": 0.85
+      }
+   ]
 }
 ```
 
@@ -92,10 +96,11 @@ Search the knowledge base for product chunks.
 Health check endpoint.
 
 **Response:**
+
 ```json
 {
-  "status": "healthy",
-  "model": "distilbert-base-uncased-finetuned-sst-2-english"
+   "status": "healthy",
+   "model": "distilbert-base-uncased-finetuned-sst-2-english"
 }
 ```
 
@@ -119,6 +124,7 @@ curl -X POST http://localhost:8000/analyze \
 ## Model
 
 Uses `distilbert-base-uncased-finetuned-sst-2-english`:
+
 - 66M parameters
 - Fine-tuned on SST-2 (Stanford Sentiment Treebank)
 - Binary classification: POSITIVE / NEGATIVE

@@ -2,27 +2,27 @@
 
 ## Folder Structure
 
-| Folder | Purpose |
-|--------|---------|
-| `apps/server/` | TypeScript server — orchestration, routing, tools, API |
-| `apps/client/` | Frontend chat UI |
-| `services/python/` | Python microservice — sentiment, KB search |
-| `data/products/` | Product documentation (3–5 .txt files) |
-| `examples/sample_logs/` | Multi-tool orchestration execution logs |
-| `docs/` | Architecture, validation, cost estimation |
+| Folder                  | Purpose                                                |
+| ----------------------- | ------------------------------------------------------ |
+| `apps/server/`          | TypeScript server — orchestration, routing, tools, API |
+| `apps/client/`          | Frontend chat UI                                       |
+| `services/python/`      | Python microservice — sentiment, KB search             |
+| `data/products/`        | Product documentation (3–5 .txt files)                 |
+| `examples/sample_logs/` | Multi-tool orchestration execution logs                |
+| `docs/`                 | Architecture, validation, cost estimation              |
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `apps/server/index.ts` | Entry point, mounts routes |
-| `apps/server/prompts.ts` | All prompts (ROUTER_PROMPT, ROUTER_SYSTEM_PROMPT, RAG_GENERATION_PROMPT, ORCHESTRATION_SYNTHESIS_PROMPT, etc.) |
-| `apps/server/routes.ts` | Express route definitions |
-| `apps/server/services/chat.service.ts` | sendMessage → planPlanner | routeMessage |
-| `apps/server/services/planner.service.ts` | planPlanner(userInput) → RouterPlan \| null |
-| `apps/server/services/plan-executor.service.ts` | executePlan(plan, userInput, context) |
-| `apps/server/services/router.service.ts` | routeMessage → single-intent handlers |
-| `apps/server/llm/python-kb-client.ts` | searchKB(query, topK) → Python /search_kb |
+| File                                            | Purpose                                                                                                        |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------ |
+| `apps/server/index.ts`                          | Entry point, mounts routes                                                                                     |
+| `apps/server/prompts.ts`                        | All prompts (ROUTER_PROMPT, ROUTER_SYSTEM_PROMPT, RAG_GENERATION_PROMPT, ORCHESTRATION_SYNTHESIS_PROMPT, etc.) |
+| `apps/server/routes.ts`                         | Express route definitions                                                                                      |
+| `apps/server/services/chat.service.ts`          | sendMessage → planPlanner                                                                                      | routeMessage |
+| `apps/server/services/planner.service.ts`       | planPlanner(userInput) → RouterPlan \| null                                                                    |
+| `apps/server/services/plan-executor.service.ts` | executePlan(plan, userInput, context)                                                                          |
+| `apps/server/services/router.service.ts`        | routeMessage → single-intent handlers                                                                          |
+| `apps/server/llm/python-kb-client.ts`           | searchKB(query, topK) → Python /search_kb                                                                      |
 
 ## Tools
 

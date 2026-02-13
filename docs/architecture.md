@@ -33,11 +33,11 @@ User → API (POST /api/chat) → Chat Controller → Chat Service
 
 ## Key Deliverables
 
-| File | Purpose |
-|------|---------|
-| apps/server/index.ts | Entry point, bootstrap only |
-| apps/server/prompts.ts | All prompts |
-| services/python/server.py | /analyze, /search_kb |
-| services/python/index_kb.py | KB indexing |
-| data/products/ | Product documents |
-| examples/sample_logs/ | Execution logs |
+| File                        | Purpose                     |
+| --------------------------- | --------------------------- |
+| apps/server/index.ts        | Entry point, bootstrap only |
+| apps/server/prompts.ts      | All prompts                 |
+| services/python/server.py   | /analyze, /search_kb        |
+| services/python/index_kb.py | KB indexing                 |
+| data/products/              | Product documents           |
+| examples/sample_logs/       | Execution logs              |

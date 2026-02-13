@@ -1,24 +1,24 @@
 {
-  "name": "ChatBot",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "format": "prettier --write .",
-    "prepare": "husky"
-  },
-  "devDependencies": {
-    "@tailwindcss/typography": "^0.5.16",
-    "@types/bun": "latest",
-    "concurrently": "^9.2.1",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
-    "prettier": "^3.7.4"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "workspaces": [
-    "apps/*"
-  ]
+   "name": "ChatBot",
+   "type": "module",
+   "private": true,
+   "scripts": {
+      "dev": "bun run scripts/dev.ts",
+      "format": "prettier --write .",
+      "prepare": "husky"
+   },
+   "devDependencies": {
+      "@tailwindcss/typography": "^0.5.16",
+      "@types/bun": "latest",
+      "concurrently": "^9.2.1",
+      "husky": "^9.1.7",
+      "lint-staged": "^16.2.7",
+      "prettier": "^3.7.4"
+   },
+   "peerDependencies": {
+      "typescript": "^5"
+   },
+   "workspaces": [
+      "apps/*"
+   ]
 }
