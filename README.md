@@ -28,7 +28,7 @@ A multi-intent chatbot that routes user queries to the right tools, uses RAG for
 ## 📋 Prerequisites
 
 - **Ollama** (optional): Local LLM for router/planner. [Install](https://ollama.ai/download), then `ollama pull llama3.2`
-- **Python 3.12** with pip (use 3.12 — PyTorch doesn't fully support 3.13)
+- **Python 3.10 / 3.11 / 3.12** with pip (use 3.12 — PyTorch doesn't fully support 3.13)
 - **OpenAI API key** (required)
 
 ### 🦙 Ollama Setup
@@ -65,16 +65,19 @@ Create `apps/server/.env`:
 
 ```bash
 cd services/python
-py -3.12 -m venv .venv
+py -m venv .venv
 .\.venv\Scripts\activate
+python -m pip install -U pip setuptools wheel
+pip install httpx
+pip install --no-cache-dir --only-binary=:all: chromadb
 pip install -r requirements.txt
 ```
 
 ### 4. Knowledge Base Indexing
-
+## only in first time / when you change the data
 ```bash
 cd services/python
-python index_kb.py --rebuild
+py index_kb.py --rebuild
 ```
 
 ### 5. Run
