@@ -9,7 +9,7 @@ FastAPI service: sentiment analysis + knowledge base search (ChromaDB).
 Use **Python 3.12** (PyTorch does not fully support 3.13 yet):
 
 ```bash
-cd python-service
+cd services/python
 py -3.12 -m venv .venv
 
 # Windows
@@ -85,7 +85,7 @@ Search the knowledge base for product chunks.
 }
 ```
 
-**KB indexing:** Run `python index_kb.py --rebuild` from `python-service` (loads from `../data/products`). ChromaDB stored at `./chroma_db` by default.
+**KB indexing:** Run `python index_kb.py --rebuild` from `services/python` (loads from `../../data/products`). ChromaDB stored at `./chroma_db` by default.
 
 ### GET /health
 
