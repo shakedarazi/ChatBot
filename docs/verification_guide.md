@@ -10,20 +10,20 @@ Key files (as of inspection):
 
 | Path | Purpose |
 |------|---------|
-| `packages/server/prompts.ts` | All prompts (ROUTER_PROMPT, ROUTER_SYSTEM_PROMPT, RAG_GENERATION_PROMPT, ORCHESTRATION_SYNTHESIS_PROMPT) |
-| `packages/server/services/chat.service.ts` | sendMessage → planPlanner / routeMessage |
-| `packages/server/services/planner.service.ts` | planPlanner(userInput) → RouterPlan |
-| `packages/server/services/plan-executor.service.ts` | executePlan, tool dispatch, synthesis |
-| `packages/server/services/router.service.ts` | Single-intent routing |
-| `packages/server/services/product-info.service.ts` | getProductInformation, searchKB, RAG |
-| `python-service/server.py` | /analyze, /search_kb |
-| `python-service/index_kb.py` | KB indexing (load, chunk, embed, ChromaDB) |
-| `python-service/kb_service.py` | ChromaDB + sentence-transformers |
+| `apps/server/prompts.ts` | All prompts (ROUTER_PROMPT, ROUTER_SYSTEM_PROMPT, RAG_GENERATION_PROMPT, ORCHESTRATION_SYNTHESIS_PROMPT) |
+| `apps/server/services/chat.service.ts` | sendMessage → planPlanner / routeMessage |
+| `apps/server/services/planner.service.ts` | planPlanner(userInput) → RouterPlan |
+| `apps/server/services/plan-executor.service.ts` | executePlan, tool dispatch, synthesis |
+| `apps/server/services/router.service.ts` | Single-intent routing |
+| `apps/server/services/product-info.service.ts` | getProductInformation, searchKB, RAG |
+| `services/python/server.py` | /analyze, /search_kb |
+| `services/python/index_kb.py` | KB indexing (load, chunk, embed, ChromaDB) |
+| `services/python/kb_service.py` | ChromaDB + sentence-transformers |
 | `data/products/*.txt` | Product docs |
-| `sample_logs/*.txt` | Orchestration logs |
+| `examples/sample_logs/*.txt` | Orchestration logs |
 | `docs/architecture.md`, `docs/repo_map.md` | Architecture docs |
 
-**Environment:** `.env` must be in `packages/server/`. Loaded via `dotenv.config({ path: path.join(import.meta.dir, '.env') })` in `packages/server/index.ts`.
+**Environment:** `.env` must be in `apps/server/`. Loaded via `dotenv.config({ path: path.join(import.meta.dir, '.env') })` in `apps/server/index.ts`.
 
 ---
 
@@ -40,7 +40,7 @@ Expect: `Python 3.12.x`. PyTorch does not fully support 3.13 yet.
 ### 2. Create and activate venv (Windows, in python service)
 
 ```powershell
-cd python-service
+cd services/python
 py -3.12 -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
@@ -49,7 +49,7 @@ pip install -r requirements.txt
 
 ### 3. Environment variables
 
-Create `packages/server/.env`:
+Create `apps/server/.env`:
 
 | Variable | Required for runnig | Notes |
 |----------|----------|-------|
@@ -65,7 +65,7 @@ Create `packages/server/.env`:
 ### 4. Index KB (in service )
 
 ```powershell
-cd python-service
+cd services/python
 python index_kb.py --rebuild
 ```
 
@@ -78,13 +78,13 @@ bun --version
 bun install
 ```
 
-From root: `bun run build` (in packages/server) to verify TypeScript compiles.
+From root: `bun run build` (in apps/server) to verify TypeScript compiles.
 
 ### 6. Start services (two terminals)
 
 **Terminal 1 — Python service:**
 ```powershell
-cd python-service
+cd services/python
 .\.venv\Scripts\activate
 uvicorn server:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -106,7 +106,7 @@ Verify Python service: `Invoke-RestMethod -Uri http://localhost:8000/health -Met
 
 **Goal:** Detect complex intents, return valid plan JSON, detect getProductInformation.
 
-**Setup:** `USE_PLAN=true` in `packages/server/.env`, or set before run. Start Python service + TS server.
+**Setup:** `USE_PLAN=true` in `apps/server/.env`, or set before run. Start Python service + TS server.
 
 **Test prompts:**
 - EN: `What's the weather in Berlin and the GBP to ILS exchange rate?`
@@ -158,7 +158,7 @@ Invoke-RestMethod -Uri http://localhost:3000/api/chat -Method Post -Body $body -
 
 **Check indexer:**
 ```powershell
-cd python-service
+cd services/python
 python index_kb.py --rebuild
 ```
 
@@ -268,7 +268,7 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 
 **Goal:** README timing table, local vs cloud comparison, cost/accuracy discussion.
 
-**Check:** `packages/server/README.md` sections:
+**Check:** `apps/server/README.md` sections:
 - "Performance Benchmarks" with table (Router, Planner, KB Search, RAG Generation, Synthesis, etc.)
 - "Model Comparison (Ollama vs OpenAI)" table
 - Cost/accuracy trade-off text
@@ -285,9 +285,9 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 **Goal:** 3 complex orchestration scenarios logged with plan JSON, intermediate results, final answer.
 
 **Check files:**
-- `sample_logs/multi_tool_weather_exchange.txt`
-- `sample_logs/multi_tool_review_product.txt`
-- `sample_logs/multi_tool_exchange_product_math.txt`
+- `examples/sample_logs/multi_tool_weather_exchange.txt`
+- `examples/sample_logs/multi_tool_review_product.txt`
+- `examples/sample_logs/multi_tool_exchange_product_math.txt`
 
 **Each file should contain:**
 1. Plan JSON (`{ plan: [...], final_answer_synthesis_required }`)
@@ -306,13 +306,13 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 
 **Goal:** Clear install/run; Python deps; Ollama; folder structure.
 
-**Check:** Root `README.md` and `packages/server/README.md`:
+**Check:** Root `README.md` and `apps/server/README.md`:
 - Step-by-step install
 - Python venv creation (`py -3.12 -m venv .venv`)
 - pip install -r requirements.txt
 - Ollama setup
-- Folder structure (packages/server, packages/client, python-service, data/products, sample_logs, docs)
-- .env location: `packages/server/`
+- Folder structure (apps/server, apps/client, services/python, data/products, examples/sample_logs, docs)
+- .env location: `apps/server/`
 
 **Pass/Fail:**
 - [ ] Install/run instructions complete
@@ -346,7 +346,7 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 
 1. Leave Ollama uninstalled or stopped.
 2. Server falls back to OpenAI for router and planner.
-3. Set `OPENAI_API_KEY` in `packages/server/.env`.
+3. Set `OPENAI_API_KEY` in `apps/server/.env`.
 4. Set `USE_PLAN=true` for orchestration.
 5. Validation: Same demo queries; expect `[benchmark] router-openai` and `[benchmark] router-planner-openai` in logs instead of Ollama.
 
@@ -354,7 +354,7 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 
 **"cannot import name 'Tensor' from 'torch'":** Usually Python 3.13. Recreate venv with 3.12:
 ```powershell
-cd python-service
+cd services/python
 Remove-Item -Recurse -Force .venv
 py -3.12 -m venv .venv
 .\.venv\Scripts\activate
@@ -365,12 +365,12 @@ pip install -r requirements.txt
 
 ### /search_kb contract mismatch
 
-Response must be `{ chunks: [ { text, metadata: { source, chunk_index }, score } ] }`. Check `python-service/server.py` maps kb_service output to this shape. TypeScript client in `packages/server/llm/python-kb-client.ts` expects this.
+Response must be `{ chunks: [ { text, metadata: { source, chunk_index }, score } ] }`. Check `services/python/server.py` maps kb_service output to this shape. TypeScript client in `apps/server/llm/python-kb-client.ts` expects this.
 
 ### USE_PLAN env mismatch
 
 - Plan orchestration OFF by default.
-- Set `USE_PLAN=true` in `packages/server/.env` to enable.
+- Set `USE_PLAN=true` in `apps/server/.env` to enable.
 - Do not use `USE_PLAN_ROUTING`; only `USE_PLAN` is read.
 
 ---

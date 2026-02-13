@@ -35,9 +35,9 @@ User → API (POST /api/chat) → Chat Controller → Chat Service
 
 | File | Purpose |
 |------|---------|
-| packages/server/index.ts | Entry point, bootstrap only |
-| packages/server/prompts.ts | All prompts |
-| python-service/server.py | /analyze, /search_kb |
-| python-service/index_kb.py | KB indexing |
+| apps/server/index.ts | Entry point, bootstrap only |
+| apps/server/prompts.ts | All prompts |
+| services/python/server.py | /analyze, /search_kb |
+| services/python/index_kb.py | KB indexing |
 | data/products/ | Product documents |
-| sample_logs/ | Execution logs |
+| examples/sample_logs/ | Execution logs |
