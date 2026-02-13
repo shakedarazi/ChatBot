@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 CHROMA_DB_PATH = os.environ.get("CHROMA_DB_PATH", "./chroma_db")
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 COLLECTION_NAME = "products"
-DATA_DIR = os.environ.get("DATA_DIR", "../data/products")
+DATA_DIR = os.environ.get("DATA_DIR", "../../data/products")
 
 # Chunking settings (word-based per rubric §3)
 CHUNK_SIZE_WORDS = 400  # 200-500 words per chunk

@@ -5,8 +5,7 @@ node_modules
 chroma_db/
 
 # Runtime data
-history.json
-packages/server/history.json
+**/history.json
 
 # output
 out

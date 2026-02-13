@@ -4,13 +4,13 @@ concurrently([
    {
       name: 'server',
       command: 'bun run dev',
-      cwd: 'packages/server',
+      cwd: 'apps/server',
       prefixColor: 'cyan',
    },
    {
       name: 'client',
       command: 'bun run dev',
-      cwd: 'packages/client',
+      cwd: 'apps/client',
       prefixColor: 'green',
    },
 ]);
