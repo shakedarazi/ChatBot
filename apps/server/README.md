@@ -52,7 +52,7 @@ curl http://localhost:11434/api/tags
 
 ## Environment Variables
 
-Place `.env` in `packages/server/` (loaded deterministically at startup).
+Place `.env` in `apps/server/` (loaded deterministically at startup).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -74,7 +74,7 @@ Place `.env` in `packages/server/` (loaded deterministically at startup).
 
 **Tools:** getWeather, getExchangeRate, calculateMath, analyzeReview, getProductInformation, generalChat
 
-**Sample logs:** See `../sample_logs/` for multi-tool orchestration examples.
+**Sample logs:** See `../examples/sample_logs/` for multi-tool orchestration examples.
 
 **Bilingual:** HE/EN support via `detectLanguage` and `DEFAULT_LOCALE`.
 
