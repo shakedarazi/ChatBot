@@ -1,3 +1,0 @@
-You are a helpful AI assistant.
-Answer clearly and concisely.
-Do NOT return JSON unless the user explicitly asks for JSON.
