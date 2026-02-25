@@ -1,4 +1,5 @@
 // packages/server/services/chat.service.ts
+
 import { conversationRepository } from '../repositories/conversation.repository';
 import { executePlan } from './plan-executor.service';
 import { planPlanner } from './planner.service';
@@ -23,23 +24,36 @@ export const chatService = {
       }
 
       const context = conversationRepository.getContext(conversationId);
+      const previousResponseId =
+         conversationRepository.getLastResponseId(conversationId);
 
-      // Planner-first: Router is no longer used anywhere in the project.
-      // If the planner fails to produce a valid plan, we fall back to generalChat.
       const plan = await planPlanner(prompt);
 
       let message: string;
+      let responseId: string | undefined;
+
       if (plan) {
-         const result = await executePlan(plan, prompt, context);
+         const result = await executePlan(
+            plan,
+            prompt,
+            context,
+            previousResponseId
+         );
          message = result.message;
       } else {
-         const fallback = await generalChat(context, prompt);
-         message = fallback.message;
+         // If planning fails, fallback to generalChat directly.
+         const r = await generalChat(context, prompt, previousResponseId);
+         message = r.message;
+         responseId = r.responseId;
       }
 
       conversationRepository.addTurn(conversationId, prompt, message);
-      await conversationRepository.save();
 
+      if (responseId) {
+         conversationRepository.setLastResponseId(conversationId, responseId);
+      }
+
+      await conversationRepository.save();
       return { id: crypto.randomUUID(), message };
    },
 };
