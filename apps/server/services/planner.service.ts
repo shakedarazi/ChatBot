@@ -6,9 +6,6 @@ import { llmClient } from '../llm/client';
 import { callOllama } from '../llm/ollama-client';
 import { ROUTER_SYSTEM_PROMPT } from '../prompts';
 
-/**
- * Extract the first valid JSON object from free-form LLM text
- */
 function extractFirstJsonObject(text: string): string | null {
    const start = text.indexOf('{');
    if (start === -1) return null;
@@ -22,12 +19,7 @@ function extractFirstJsonObject(text: string): string | null {
    return null;
 }
 
-/**
- * Parse, validate and PRINT the generated plan (project requirement)
- */
-async function tryParseAndValidatePlan(
-   rawText: string
-): Promise<RouterPlan | null> {
+function tryParseAndValidatePlan(rawText: string): RouterPlan | null {
    const extracted = extractFirstJsonObject(rawText);
    if (!extracted) return null;
 
@@ -39,10 +31,7 @@ async function tryParseAndValidatePlan(
    }
 
    const validated = routerPlanSchema.safeParse(parsed);
-   if (!validated.success) {
-      console.log('[planner] Zod validation failed:', validated.error.message);
-      return null;
-   }
+   if (!validated.success) return null;
 
    console.log('===== GENERATED PLAN =====');
    console.log(JSON.stringify(validated.data, null, 2));
@@ -51,18 +40,13 @@ async function tryParseAndValidatePlan(
    return validated.data;
 }
 
-/**
- * Planner entry point
- * - Tries Ollama first
- * - Falls back to OpenAI if needed
- * - Returns a validated RouterPlan or null
- */
 export async function planPlanner(
    userInput: string
 ): Promise<RouterPlan | null> {
    const start = Date.now();
+   console.log('[planner] Incoming user input:', userInput);
 
-   // 1) Try Ollama first (fast/local)
+   // Try Ollama first
    try {
       const response = await callOllama({
          prompt: userInput,
@@ -71,16 +55,17 @@ export async function planPlanner(
          timeoutMs: 30000,
       });
 
-      const plan = await tryParseAndValidatePlan(response.text);
+      const plan = tryParseAndValidatePlan(response.text);
       console.log(`[benchmark] planner-ollama latency=${Date.now() - start}ms`);
 
       if (plan) return plan;
    } catch (err) {
-      console.log(`[planner] ollama failed: ${String(err)}`);
+      console.log(`[planner] Ollama failed:`, String(err));
    }
 
-   // 2) Fallback to OpenAI
+   // Fallback to OpenAI
    try {
+      console.log('[planner] Falling back to OpenAI');
       const response = await llmClient.generateText({
          model: 'gpt-4.1',
          instructions: ROUTER_SYSTEM_PROMPT,
@@ -89,13 +74,14 @@ export async function planPlanner(
          maxTokens: 700,
       });
 
-      const plan = await tryParseAndValidatePlan(response.text);
-      console.log(`[benchmark] planner-openai latency=${Date.now() - start}ms`);
+      const plan = tryParseAndValidatePlan(response.text);
+      console.log(
+         `[benchmark] planner-openai latency=${Date.now() - start}ms}`
+      );
 
       return plan;
-   } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error('[planner] error:', msg);
+   } catch (err) {
+      console.error('[planner] OpenAI failed:', err);
       return null;
    }
 }
