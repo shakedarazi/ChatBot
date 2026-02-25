@@ -53,7 +53,6 @@ Create `apps/server/.env`:
 | Variable         | Required for runnig | Notes                                            |
 | ---------------- | ------------------- | ------------------------------------------------ |
 | `OPENAI_API_KEY` | Yes                 | For RAG, synthesis, fallback                     |
-| `DATABASE_URL`   | Yes                 | Prisma connection                                |
 | `PY_SERVICE_URL` | No                  | Default `http://localhost:8000`                  |
 | `OLLAMA_URL`     | No                  | Default `http://localhost:11434`                 |
 | `OLLAMA_MODEL`   | No                  | Default `llama3.2`                               |

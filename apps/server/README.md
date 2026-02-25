@@ -58,7 +58,6 @@ Place `.env` in `apps/server/` (loaded deterministically at startup).
 | Variable         | Default                  | Description                             |
 | ---------------- | ------------------------ | --------------------------------------- |
 | `OPENAI_API_KEY` | (required)               | OpenAI API key for fallback             |
-| `DATABASE_URL`   | (required)               | Prisma database connection              |
 | `OLLAMA_URL`     | `http://localhost:11434` | Ollama server URL                       |
 | `OLLAMA_MODEL`   | `llama3.2`               | Ollama model for router/chat            |
 | `PY_SERVICE_URL` | `http://localhost:8000`  | Python sentiment + KB service URL       |
