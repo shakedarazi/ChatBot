@@ -6,9 +6,13 @@ import { llmClient } from '../llm/client';
 import { callOllama } from '../llm/ollama-client';
 import { ROUTER_SYSTEM_PROMPT } from '../prompts';
 
+/**
+ * Extract the first valid JSON object from free-form LLM text
+ */
 function extractFirstJsonObject(text: string): string | null {
    const start = text.indexOf('{');
    if (start === -1) return null;
+
    let depth = 0;
    for (let i = start; i < text.length; i++) {
       if (text[i] === '{') depth++;
@@ -19,64 +23,76 @@ function extractFirstJsonObject(text: string): string | null {
 }
 
 /**
- * Plan multi-step tool execution from user input.
- * Returns valid RouterPlan or null on parse/validation failure.
+ * Parse, validate and PRINT the generated plan (project requirement)
+ */
+async function tryParseAndValidatePlan(
+   rawText: string
+): Promise<RouterPlan | null> {
+   const extracted = extractFirstJsonObject(rawText);
+   if (!extracted) return null;
+
+   let parsed: unknown;
+   try {
+      parsed = JSON.parse(extracted);
+   } catch {
+      return null;
+   }
+
+   const validated = routerPlanSchema.safeParse(parsed);
+   if (!validated.success) {
+      console.log('[planner] Zod validation failed:', validated.error.message);
+      return null;
+   }
+
+   console.log('===== GENERATED PLAN =====');
+   console.log(JSON.stringify(validated.data, null, 2));
+   console.log('==========================');
+
+   return validated.data;
+}
+
+/**
+ * Planner entry point
+ * - Tries Ollama first
+ * - Falls back to OpenAI if needed
+ * - Returns a validated RouterPlan or null
  */
 export async function planPlanner(
    userInput: string
 ): Promise<RouterPlan | null> {
    const start = Date.now();
 
+   // 1) Try Ollama first (fast/local)
    try {
-      // Try Ollama first (consistent with router)
-      let rawText: string;
-      try {
-         const response = await callOllama({
-            prompt: userInput,
-            system: ROUTER_SYSTEM_PROMPT,
-            temperature: 0,
-            timeoutMs: 15000,
-         });
-         rawText = response.text;
-         console.log(JSON.stringify(JSON.parse(rawText), null, 2));
-         console.log(
-            `[benchmark] router-planner-ollama latency=${Date.now() - start}ms`
-         );
-      } catch (err) {
-         // Fallback to OpenAI
-         console.log(`[planner] fallback to OpenAI due to: ${err}`);
-         const response = await llmClient.generateText({
-            model: 'gpt-4.1',
-            instructions: ROUTER_SYSTEM_PROMPT,
-            prompt: userInput,
-            temperature: 0,
-            maxTokens: 500,
-         });
-         rawText = response.text;
-         console.log(JSON.stringify(JSON.parse(rawText), null, 2));
-         console.log(
-            `[benchmark] router-planner-openai latency=${Date.now() - start}ms`
-         );
-      }
+      const response = await callOllama({
+         prompt: userInput,
+         system: ROUTER_SYSTEM_PROMPT,
+         temperature: 0.2,
+         timeoutMs: 30000,
+      });
 
-      const extracted = extractFirstJsonObject(rawText);
-      if (!extracted) {
-         console.log('[planner] JSON extraction failed');
-         return null;
-      }
+      const plan = await tryParseAndValidatePlan(response.text);
+      console.log(`[benchmark] planner-ollama latency=${Date.now() - start}ms`);
 
-      const parsed = JSON.parse(extracted);
-      const validated = routerPlanSchema.safeParse(parsed);
+      if (plan) return plan;
+   } catch (err) {
+      console.log(`[planner] ollama failed: ${String(err)}`);
+   }
 
-      if (!validated.success) {
-         console.log(
-            '[planner] Zod validation failed:',
-            validated.error.message
-         );
-         return null;
-      }
+   // 2) Fallback to OpenAI
+   try {
+      const response = await llmClient.generateText({
+         model: 'gpt-4.1',
+         instructions: ROUTER_SYSTEM_PROMPT,
+         prompt: userInput,
+         temperature: 0.2,
+         maxTokens: 700,
+      });
 
-      return validated.data;
+      const plan = await tryParseAndValidatePlan(response.text);
+      console.log(`[benchmark] planner-openai latency=${Date.now() - start}ms`);
+
+      return plan;
    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[planner] error:', msg);
