@@ -358,5 +358,41 @@
         "content": "The Laptop Pro X1 costs 1 USD. When converted to shekels at an exchange rate of 3.75, the price is 3.75 shekels. Adding 50 gives a total of 53.75 shekels."
       }
     ]
+  },
+  "b9e8fbac-4f71-485a-beec-76c60d107a93": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "שלום"
+      },
+      {
+        "role": "assistant",
+        "content": "שלום! איך אפשר לעזור?"
+      }
+    ]
+  },
+  "8c07c821-e71b-4a48-a46c-d5cfb2a4e073": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather in Berlin and the GBP to ILS exchange rate?"
+      },
+      {
+        "role": "assistant",
+        "content": "The current weather in Berlin is 9.6°C with a wind speed of 8.6 km/h. The exchange rate from GBP to ILS is 4.7."
+      }
+    ]
+  },
+  "a7e80e5b-19cf-4663-ac6e-a61f02c22f85": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "The Smart Watch S5 has great battery but the band is uncomfortable. What are its specs?"
+      },
+      {
+        "role": "assistant",
+        "content": "The Smart Watch S5 features a 1.9-inch AMOLED display with a 484x396 resolution and always-on capability. It is powered by a dual-core 1.8GHz processor, has 2GB of RAM, and offers 32GB of internal storage. The watch boasts a 410mAh battery, providing up to 48 hours of typical use, which is highlighted as one of its best features. It is water resistant up to 5ATM, making it suitable for swimming, and weighs 42g (without the band) with dimensions of 44mm x 38mm x 10.7mm.\n\nHowever, while the battery life is excellent, users have noted that the band is uncomfortable to wear. Overall, the sentiment towards the Smart Watch S5 is mixed, with a review score of 6/10."
+      }
+    ]
   }
 }

@@ -9,6 +9,7 @@ import { ROUTER_SYSTEM_PROMPT } from '../prompts';
 function extractFirstJsonObject(text: string): string | null {
    const start = text.indexOf('{');
    if (start === -1) return null;
+
    let depth = 0;
    for (let i = start; i < text.length; i++) {
       if (text[i] === '{') depth++;
@@ -18,68 +19,69 @@ function extractFirstJsonObject(text: string): string | null {
    return null;
 }
 
-/**
- * Plan multi-step tool execution from user input.
- * Returns valid RouterPlan or null on parse/validation failure.
- */
+function tryParseAndValidatePlan(rawText: string): RouterPlan | null {
+   const extracted = extractFirstJsonObject(rawText);
+   if (!extracted) return null;
+
+   let parsed: unknown;
+   try {
+      parsed = JSON.parse(extracted);
+   } catch {
+      return null;
+   }
+
+   const validated = routerPlanSchema.safeParse(parsed);
+   if (!validated.success) return null;
+
+   console.log('===== GENERATED PLAN =====');
+   console.log(JSON.stringify(validated.data, null, 2));
+   console.log('==========================');
+
+   return validated.data;
+}
+
 export async function planPlanner(
    userInput: string
 ): Promise<RouterPlan | null> {
    const start = Date.now();
+   console.log('[planner] Incoming user input:', userInput);
 
+   // Try Ollama first
    try {
-      // Try Ollama first (consistent with router)
-      let rawText: string;
-      try {
-         const response = await callOllama({
-            prompt: userInput,
-            system: ROUTER_SYSTEM_PROMPT,
-            temperature: 0,
-            timeoutMs: 15000,
-         });
-         rawText = response.text;
-         console.log(JSON.stringify(JSON.parse(rawText), null, 2));
-         console.log(
-            `[benchmark] router-planner-ollama latency=${Date.now() - start}ms`
-         );
-      } catch (err) {
-         // Fallback to OpenAI
-         console.log(`[planner] fallback to OpenAI due to: ${err}`);
-         const response = await llmClient.generateText({
-            model: 'gpt-4.1',
-            instructions: ROUTER_SYSTEM_PROMPT,
-            prompt: userInput,
-            temperature: 0,
-            maxTokens: 500,
-         });
-         rawText = response.text;
-         console.log(JSON.stringify(JSON.parse(rawText), null, 2));
-         console.log(
-            `[benchmark] router-planner-openai latency=${Date.now() - start}ms`
-         );
-      }
+      const response = await callOllama({
+         prompt: userInput,
+         system: ROUTER_SYSTEM_PROMPT,
+         temperature: 0.2,
+         timeoutMs: 30000,
+      });
 
-      const extracted = extractFirstJsonObject(rawText);
-      if (!extracted) {
-         console.log('[planner] JSON extraction failed');
-         return null;
-      }
+      const plan = tryParseAndValidatePlan(response.text);
+      console.log(`[benchmark] planner-ollama latency=${Date.now() - start}ms`);
 
-      const parsed = JSON.parse(extracted);
-      const validated = routerPlanSchema.safeParse(parsed);
+      if (plan) return plan;
+   } catch (err) {
+      console.log(`[planner] Ollama failed:`, String(err));
+   }
 
-      if (!validated.success) {
-         console.log(
-            '[planner] Zod validation failed:',
-            validated.error.message
-         );
-         return null;
-      }
+   // Fallback to OpenAI
+   try {
+      console.log('[planner] Falling back to OpenAI');
+      const response = await llmClient.generateText({
+         model: 'gpt-4.1',
+         instructions: ROUTER_SYSTEM_PROMPT,
+         prompt: userInput,
+         temperature: 0.2,
+         maxTokens: 700,
+      });
 
-      return validated.data;
-   } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error('[planner] error:', msg);
+      const plan = tryParseAndValidatePlan(response.text);
+      console.log(
+         `[benchmark] planner-openai latency=${Date.now() - start}ms}`
+      );
+
+      return plan;
+   } catch (err) {
+      console.error('[planner] OpenAI failed:', err);
       return null;
    }
 }

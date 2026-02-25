@@ -1,8 +1,9 @@
 // packages/server/services/chat.service.ts
+
 import { conversationRepository } from '../repositories/conversation.repository';
-import { routeMessage } from './router.service';
 import { executePlan } from './plan-executor.service';
 import { planPlanner } from './planner.service';
+import { generalChat } from './general-chat.service';
 
 type ChatResponse = {
    id: string;
@@ -26,19 +27,24 @@ export const chatService = {
       const previousResponseId =
          conversationRepository.getLastResponseId(conversationId);
 
-      const usePlan = process.env.USE_PLAN === 'true';
-      const plan = usePlan ? await planPlanner(prompt) : null;
+      const plan = await planPlanner(prompt);
 
       let message: string;
       let responseId: string | undefined;
 
       if (plan) {
-         const result = await executePlan(plan, prompt, context);
+         const result = await executePlan(
+            plan,
+            prompt,
+            context,
+            previousResponseId
+         );
          message = result.message;
       } else {
-         const routed = await routeMessage(prompt, context, previousResponseId);
-         message = routed.message;
-         responseId = routed.responseId;
+         // If planning fails, fallback to generalChat directly.
+         const r = await generalChat(context, prompt, previousResponseId);
+         message = r.message;
+         responseId = r.responseId;
       }
 
       conversationRepository.addTurn(conversationId, prompt, message);
@@ -48,7 +54,6 @@ export const chatService = {
       }
 
       await conversationRepository.save();
-
       return { id: crypto.randomUUID(), message };
    },
 };
