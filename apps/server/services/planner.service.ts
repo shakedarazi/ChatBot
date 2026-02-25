@@ -38,11 +38,13 @@ export async function planPlanner(
             timeoutMs: 15000,
          });
          rawText = response.text;
+         console.log(JSON.stringify(JSON.parse(rawText), null, 2));
          console.log(
-            `[benchmark] router-planner latency=${Date.now() - start}ms`
+            `[benchmark] router-planner-ollama latency=${Date.now() - start}ms`
          );
-      } catch {
+      } catch (err) {
          // Fallback to OpenAI
+         console.log(`[planner] fallback to OpenAI due to: ${err}`);
          const response = await llmClient.generateText({
             model: 'gpt-4.1',
             instructions: ROUTER_SYSTEM_PROMPT,
@@ -51,6 +53,7 @@ export async function planPlanner(
             maxTokens: 500,
          });
          rawText = response.text;
+         console.log(JSON.stringify(JSON.parse(rawText), null, 2));
          console.log(
             `[benchmark] router-planner-openai latency=${Date.now() - start}ms`
          );
