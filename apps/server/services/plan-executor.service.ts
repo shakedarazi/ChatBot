@@ -1,5 +1,5 @@
 // packages/server/services/plan-executor.service.ts
-// Executor – runs the PLAN step-by-step with extensive console logging (project-friendly)
+// Executor – runs the PLAN step-by-step
 
 import type {
    RouterPlan,
@@ -13,6 +13,7 @@ import { getExchangeRate } from './exchange.service';
 import { calculateMath } from './math.service';
 import { translateWordProblemToExpression } from './math-translator.service';
 import { reviewAnalyzerService } from './review-analyzer.service';
+import { callPythonSentiment } from '../llm/python-sentiment-client';
 import { generalChat } from './general-chat.service';
 import { getProductInformation } from './product-info.service';
 import { synthesizeAnswer } from './synthesis.service';
@@ -20,43 +21,47 @@ import { detectLanguage } from '../utils/language';
 import type { ChatMessage } from '../repositories/conversation.repository';
 
 /**
- * Resolve placeholders like <result_from_tool_1> (deep / recursive).
- * If a referenced tool failed / missing, replaces with "ERROR".
+ * Router parity helpers
  */
-function resolvePlaceholdersDeep(value: any, resultStore: ResultStore): any {
-   if (typeof value === 'string') {
-      return value.replace(/<result_from_tool_(\d+)>/g, (_, idx) => {
-         const step = parseInt(idx, 10);
-         const r = resultStore.get(step);
-         if (!r || !r.success) return 'ERROR';
-         return String(r.result);
-      });
-   }
-
-   if (Array.isArray(value)) {
-      return value.map((v) => resolvePlaceholdersDeep(v, resultStore));
-   }
-
-   if (value && typeof value === 'object') {
-      const out: Record<string, any> = {};
-      for (const [k, v] of Object.entries(value)) {
-         out[k] = resolvePlaceholdersDeep(v, resultStore);
-      }
-      return out;
-   }
-
-   return value;
+function upper3(x: any): string | null {
+   if (typeof x !== 'string') return null;
+   const v = x.trim().toUpperCase();
+   return /^[A-Z]{3}$/.test(v) ? v : null;
 }
 
+/**
+ * Resolve placeholders like <result_from_tool_1> in parameters
+ * If referenced tool missing/failed -> "ERROR"
+ */
 function resolvePlaceholders(
    params: Record<string, any>,
    resultStore: ResultStore
 ): Record<string, any> {
-   return resolvePlaceholdersDeep(params, resultStore);
+   const resolved = { ...params };
+   for (const [key, value] of Object.entries(resolved)) {
+      if (typeof value === 'string') {
+         resolved[key] = value.replace(
+            /<result_from_tool_(\d+)>/g,
+            (_, idx) => {
+               const r = resultStore.get(parseInt(idx));
+               if (!r || !r.success) return 'ERROR';
+               const raw = r.result;
+
+               if (key === 'expression') {
+                  const n = extractNumericValue(raw as any);
+                  if (n !== null) return String(n);
+               }
+
+               return String(raw);
+            }
+         );
+      }
+   }
+   return resolved;
 }
 
 /**
- * Extract numeric value from tool result string for downstream math
+ * Extract numeric value from tool result string for downstream math/placeholders
  */
 function extractNumericValue(result: string | number | null): number | null {
    if (result === null) return null;
@@ -66,10 +71,10 @@ function extractNumericValue(result: string | number | null): number | null {
    const matches = normalized.match(/[\d.]+/g);
    if (!matches || matches.length === 0) return null;
 
-   // Prefer last numeric token (robust for "1 USD = 3.67 ILS")
+   // Prefer LAST numeric token (robust for "1 USD = 3.67 ILS", "$1,999" etc.)
    for (let i = matches.length - 1; i >= 0; i--) {
-      const n = parseFloat(matches[i]!);
-      if (!isNaN(n)) return n;
+      const num = parseFloat(matches[i]!);
+      if (!isNaN(num)) return num;
    }
    return null;
 }
@@ -86,7 +91,7 @@ function extractExchangeRateValue(
 
    const text = String(result).replace(/,/g, '');
 
-   // Try " = <number>"
+   // Prefer the value AFTER "=" if present
    const eqMatch = text.match(/=\s*([\d.]+)/);
    if (eqMatch?.[1]) {
       const n = parseFloat(eqMatch[1]);
@@ -97,16 +102,21 @@ function extractExchangeRateValue(
    return extractNumericValue(text);
 }
 
-function hasErrorToken(obj: any): boolean {
-   try {
-      return JSON.stringify(obj).includes('ERROR');
-   } catch {
-      return true;
-   }
+/**
+ * Router-style soft fallback: instead of failing the plan, answer with generalChat
+ */
+async function fallbackToGeneralChat(
+   context: ChatMessage[],
+   userInput: string,
+   reason: string
+): Promise<ToolResult> {
+   console.log(`[executor][fallback] generalChat because: ${reason}`);
+   const r = await generalChat(context, userInput);
+   return { tool: 'generalChat', success: true, result: r.message };
 }
 
 /**
- * Execute a single tool
+ * Execute a single tool and return the result (router-parity behavior)
  */
 async function executeTool(
    toolCall: ToolCall,
@@ -121,39 +131,78 @@ async function executeTool(
          case 'getWeather': {
             const city = resolvedParams.city;
             if (!city || typeof city !== 'string') {
-               return {
-                  tool,
-                  success: false,
-                  result: null,
-                  error: 'Missing city parameter',
-               };
+               // Router: fallback to generalChat
+               return await fallbackToGeneralChat(
+                  context,
+                  userInput,
+                  'Missing city parameter'
+               );
             }
             const result = await getWeather(city);
             return { tool, success: true, result };
          }
 
          case 'getExchangeRate': {
-            const fromRaw = resolvedParams.from;
-            const toRaw = resolvedParams.to;
-
-            const from =
-               typeof fromRaw === 'string' ? fromRaw.toUpperCase() : null;
-            const to = typeof toRaw === 'string' ? toRaw.toUpperCase() : 'ILS';
+            const from = upper3(resolvedParams.from);
+            const to = upper3(resolvedParams.to) ?? 'ILS';
 
             if (!from) {
-               return {
-                  tool,
-                  success: false,
-                  result: null,
-                  error: 'Missing from currency',
-               };
+               // Router: fallback to generalChat
+               return await fallbackToGeneralChat(
+                  context,
+                  userInput,
+                  'Missing/invalid from currency'
+               );
             }
 
-            const result = getExchangeRate(from, to);
+            const raw = getExchangeRate(from, to);
 
-            // Store numeric rate for placeholders (not the leading "1")
-            const rateValue = extractExchangeRateValue(result);
-            return { tool, success: true, result: rateValue ?? result };
+            // IMPORTANT: for placeholders store numeric rate, not leading "1"
+            const rateValue = extractExchangeRateValue(raw);
+            return { tool, success: true, result: rateValue ?? raw };
+         }
+
+         case 'getProductInformation': {
+            const productName =
+               typeof resolvedParams.product_name === 'string' &&
+               resolvedParams.product_name.trim()
+                  ? resolvedParams.product_name.trim()
+                  : null;
+
+            // Router: default query to "specs"
+            const query =
+               typeof resolvedParams.query === 'string' &&
+               resolvedParams.query.trim()
+                  ? resolvedParams.query.trim()
+                  : 'specs';
+
+            if (!productName) {
+               return await fallbackToGeneralChat(
+                  context,
+                  userInput,
+                  'Missing product_name'
+               );
+            }
+
+            try {
+               const result = await getProductInformation(
+                  productName,
+                  query,
+                  userInput
+               );
+
+               return { tool, success: true, result };
+            } catch (err: any) {
+               console.error(
+                  '[product-info] error:',
+                  err?.message ?? String(err)
+               );
+               return await fallbackToGeneralChat(
+                  context,
+                  userInput,
+                  'getProductInformation threw error'
+               );
+            }
          }
 
          case 'calculateMath': {
@@ -165,7 +214,17 @@ async function executeTool(
                typeof expression === 'string' &&
                expression.trim()
             ) {
+               if (expression.includes('ERROR')) {
+                  // Router would fallback; here we do the same (soft)
+                  return await fallbackToGeneralChat(
+                     context,
+                     userInput,
+                     'Math dependency failed (ERROR placeholder)'
+                  );
+               }
                const result = calculateMath(expression);
+
+               // Try store numeric if possible (planner-friendly)
                const numValue = extractNumericValue(result);
                return { tool, success: true, result: numValue ?? result };
             }
@@ -177,12 +236,14 @@ async function executeTool(
             ) {
                const translated =
                   await translateWordProblemToExpression(textProblem);
+
                if (!translated.expression) {
+                  // Router: return friendly message (NOT failure)
                   return {
                      tool,
-                     success: false,
-                     result: null,
-                     error: 'Could not translate word problem',
+                     success: true,
+                     result:
+                        'I could not translate the word problem into a safe math expression.',
                   };
                }
 
@@ -191,64 +252,76 @@ async function executeTool(
                return { tool, success: true, result: numValue ?? result };
             }
 
-            return {
-               tool,
-               success: false,
-               result: null,
-               error: 'Missing expression or textProblem',
-            };
+            // Router: fallback to generalChat
+            return await fallbackToGeneralChat(
+               context,
+               userInput,
+               'Missing expression/textProblem'
+            );
          }
 
          case 'analyzeReview': {
-            const reviewText = resolvedParams.reviewText || userInput;
-            if (!reviewText || typeof reviewText !== 'string') {
-               return {
-                  tool,
-                  success: false,
-                  result: null,
-                  error: 'Missing review text',
-               };
+            const reviewText =
+               typeof resolvedParams.reviewText === 'string' &&
+               resolvedParams.reviewText.trim()
+                  ? resolvedParams.reviewText
+                  : userInput;
+
+            // Router parity:
+            // - If classification confidence was low (<0.8), router verified via Python sentiment first.
+            // In planner mode we don't have router confidence, so we ALWAYS verify with Python first.
+            // This keeps the "protective" behavior: don't run expensive ABSA on non-review input.
+            try {
+               const start = Date.now();
+               const verification = await callPythonSentiment(reviewText);
+               console.log(
+                  `[benchmark] python-sentiment latency=${Date.now() - start}ms`
+               );
+               console.log(
+                  `[review] verification sentiment=${verification.sentiment} confidence=${verification.confidence}`
+               );
+
+               if (verification.confidence < 0.6) {
+                  console.log(
+                     '[review] verification failed (low confidence), fallback to generalChat'
+                  );
+                  return await fallbackToGeneralChat(
+                     context,
+                     userInput,
+                     'Review verification failed (python confidence < 0.6)'
+                  );
+               }
+            } catch (err) {
+               console.error('[review] Python verification error:', err);
+               return await fallbackToGeneralChat(
+                  context,
+                  userInput,
+                  'Python sentiment verification error'
+               );
             }
 
-            // Any special gating logic should be inside reviewAnalyzerService.analyzeReview.
-            const result =
-               await reviewAnalyzerService.analyzeReview(reviewText);
-            return { tool, success: true, result: result.formatted };
-         }
-
-         case 'getProductInformation': {
-            const productName = resolvedParams.product_name;
-            const query = resolvedParams.query;
-
-            if (!productName || !query) {
-               return {
-                  tool,
-                  success: false,
-                  result: null,
-                  error: 'Missing product_name or query',
-               };
+            try {
+               const result =
+                  await reviewAnalyzerService.analyzeReview(reviewText);
+               console.log(
+                  '[review] selfCorrectionApplied:',
+                  result.selfCorrected
+               );
+               return { tool, success: true, result: result.formatted };
+            } catch (err) {
+               console.error('[review] analyzeReview error:', err);
+               return await fallbackToGeneralChat(
+                  context,
+                  userInput,
+                  'analyzeReview threw error'
+               );
             }
-
-            const result = await getProductInformation(
-               productName,
-               query,
-               userInput
-            );
-
-            // If query is "price", try to store numeric value for downstream placeholders
-            if (typeof query === 'string' && query.toLowerCase() === 'price') {
-               const numVal = extractNumericValue(result);
-               if (numVal !== null)
-                  return { tool, success: true, result: numVal };
-            }
-
-            return { tool, success: true, result };
          }
 
          case 'generalChat': {
             const message = resolvedParams.message || userInput;
-            const result = await generalChat(context, message);
-            return { tool, success: true, result: result.message };
+            const r = await generalChat(context, message);
+            return { tool, success: true, result: r.message };
          }
 
          default:
@@ -260,6 +333,10 @@ async function executeTool(
             };
       }
    } catch (err: any) {
+      console.error(
+         `[executor] tool ${tool} error:`,
+         err?.message ?? String(err)
+      );
       return {
          tool,
          success: false,
@@ -277,8 +354,9 @@ export type PlanExecutionResult = {
 };
 
 /**
- * Execute a plan and return the final message.
- * Includes lots of console logging (as requested).
+ * Execute a plan (sequence of tool calls) and return the final result
+ * - Stops early on HARD failures (unknown tool / unexpected crash)
+ * - Uses router-style soft fallbacks for missing parameters / verification failures
  */
 export async function executePlan(
    plan: RouterPlan,
@@ -286,43 +364,42 @@ export async function executePlan(
    context: ChatMessage[]
 ): Promise<PlanExecutionResult> {
    const totalStart = Date.now();
+   const resultStore: ResultStore = new Map();
+   const toolResults: ToolResult[] = [];
+   let stoppedEarly = false;
+
    console.log('\n==============================');
    console.log('[executor] START EXECUTION');
    console.log('[executor] userInput:', userInput);
    console.log('==============================\n');
 
-   const resultStore: ResultStore = new Map();
-   const toolResults: ToolResult[] = [];
-   let stoppedEarly = false;
-
    for (let i = 0; i < plan.plan.length; i++) {
       const toolCall = plan.plan[i]!;
-      const stepIndex = i + 1; // 1-based indexing like placeholders
+      const stepIndex = i + 1; // 1-based index
 
       console.log('--------------------------------');
-      console.log(`[executor] STEP ${stepIndex}/${plan.plan.length}`);
-      console.log(`[executor] tool: ${toolCall.tool}`);
+      console.log(
+         `[executor] STEP ${stepIndex}/${plan.plan.length}: ${toolCall.tool}`
+      );
 
       const resolvedParams = resolvePlaceholders(
          toolCall.parameters,
          resultStore
       );
       console.log(
-         '[executor] resolved parameters:',
+         '[executor] resolved params:',
          JSON.stringify(resolvedParams, null, 2)
       );
 
-      // Stop if placeholders resolved to ERROR
-      if (hasErrorToken(resolvedParams)) {
-         const fail: ToolResult = {
-            tool: toolCall.tool,
-            success: false,
-            result: null,
-            error: 'Dependency tool failed (placeholder resolved to ERROR)',
-         };
-         console.error('[executor] STOP: placeholder dependency failure');
-         resultStore.set(stepIndex, fail);
-         toolResults.push(fail);
+      // If placeholders resolved to ERROR, do router-style fallback to generalChat and STOP
+      // (Router does not have multi-step dependency chains, so safest is to stop.)
+      if (JSON.stringify(resolvedParams).includes('ERROR')) {
+         const fallback = await fallbackToGeneralChat(
+            context,
+            userInput,
+            'Placeholder resolved to ERROR'
+         );
+         toolResults.push(fallback);
          stoppedEarly = true;
          break;
       }
@@ -334,40 +411,35 @@ export async function executePlan(
          context,
          userInput
       );
-      const toolLatency = Date.now() - toolStart;
-
       console.log(
-         `[benchmark] tool=${toolCall.tool} step=${stepIndex} latency=${toolLatency}ms`
+         `[benchmark] tool-${toolCall.tool} latency=${Date.now() - toolStart}ms`
       );
 
+      // Store and log
       resultStore.set(stepIndex, result);
       toolResults.push(result);
 
-      if (result.success) {
-         console.log(`[executor] ✅ success: ${toolCall.tool}`);
-         console.log(
-            '[executor] result (stored for placeholders):',
-            result.result
+      if (!result.success) {
+         console.error(
+            `[executor] ❌ HARD failure in ${toolCall.tool}: ${result.error}`
          );
-      } else {
-         console.error(`[executor] ❌ failure: ${toolCall.tool}`);
-         console.error('[executor] error:', result.error);
          stoppedEarly = true;
-         break; // stop on first failure
+         break;
+      } else {
+         console.log(
+            `[executor] ✅ ${toolCall.tool} result (stored):`,
+            String(result.result).slice(0, 200)
+         );
       }
    }
 
-   console.log('\n==============================');
-   console.log('[executor] TOOL RESULTS SUMMARY:');
-   console.log(JSON.stringify(toolResults, null, 2));
-   console.log('==============================\n');
-
+   // Determine final answer
    let finalMessage: string;
    let synthesized = false;
 
    if (plan.final_answer_synthesis_required) {
       console.log(
-         '[executor] final_answer_synthesis_required=true → running synthesis'
+         '[executor] final_answer_synthesis_required=true → synthesizing final answer'
       );
       const synthStart = Date.now();
       finalMessage = await synthesizeAnswer(
@@ -378,18 +450,14 @@ export async function executePlan(
       console.log(`[benchmark] synthesis latency=${Date.now() - synthStart}ms`);
       synthesized = true;
    } else {
-      console.log(
-         '[executor] final_answer_synthesis_required=false → returning last successful tool output'
-      );
+      // Router-equivalent: return the last successful result
       const lastSuccess = [...toolResults].reverse().find((r) => r.success);
       if (lastSuccess) {
          finalMessage = String(lastSuccess.result);
       } else {
-         console.log(
-            '[executor] no successful tool result → fallback to generalChat'
-         );
-         const fallback = await generalChat(context, userInput);
-         finalMessage = fallback.message;
+         // extra safety
+         const r = await generalChat(context, userInput);
+         finalMessage = r.message;
       }
    }
 
