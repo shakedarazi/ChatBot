@@ -61,7 +61,7 @@ export async function generalChat(
       let response = await callOllama({
          prompt,
          system: GENERAL_CHAT_PROMPT,
-         temperature: 0.7,
+         temperature: 0.3,
          timeoutMs: 30000, // 30s for local model
       });
       console.log(`[benchmark] general-chat latency=${Date.now() - start}ms`);
@@ -75,7 +75,7 @@ export async function generalChat(
          const retryResponse = await callOllama({
             prompt,
             system: GENERAL_CHAT_PROMPT + langInstruction,
-            temperature: 0.7,
+            temperature: 0.3,
             timeoutMs: 30000,
          });
          if (detectLanguage(retryResponse.text) === targetLanguage) {
@@ -103,7 +103,7 @@ export async function generalChat(
          model: 'gpt-4.1',
          instructions: GENERAL_CHAT_PROMPT + langInstruction,
          prompt,
-         temperature: 0.7,
+         temperature: 0.3,
          maxTokens: 300,
       });
       console.log(
