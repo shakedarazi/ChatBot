@@ -43,14 +43,14 @@ Benchmarks measured on a local development environment. Latency is the average a
 
 | רכיב המערכת / תרחיש        | מודל (ספק)                   | זמן תגובה ממוצע (ms) | איכות / דיוק (1‑5) | עלות משוערת |
 | --------------------------- | ---------------------------- | -------------------- | ------------------- | ----------- |
-| Router (סיווג & תכנון)      | Ollama (Llama3)              | 4572                 | 5                   | 0           |
-| Router (סיווג & תכנון)      | OpenAI GPT-3.5 (Fallback)    | 5961                 | 5                   | $0.05           |
-| General Chat                | Ollama (Llama3)              | 1299                 | 4.7                   | 0           |
-| Review Sentiment (Basic)    | Hugging Face (Python)        | —                    | 4.5                 | 0           |
-| Review Analysis (Full)      | OpenAI GPT-3.5               | —                    | 5                   | $0.12           |
-| RAG Retrieval (KB Search)   | Hugging Face (Python)        | 392                  | 4.8                   | 0           |
-| RAG Generation (Answer)     | OpenAI GPT-3.5               | 1543                 | 5                   | $0.07           |
-| Orchestration Synthesis     | OpenAI GPT-3.5               | 1468                 | 4.5                   | $0.06           |
+| Router (סיווג & תכנון)      | Ollama (Llama3)              | 4572ms                 | 5                   | 0           |
+| Router (סיווג & תכנון)      | OpenAI GPT-3.5 (Fallback)    | 5961ms                 | 5                   | $0.05           |
+| General Chat                | Ollama (Llama3)              | 1299ms                 | 4.7                   | 0           |
+| Review Sentiment (Basic)    | Hugging Face (Python)        | 2334ms                    | 4.5                 | 0           |
+| Review Analysis (Full)      | OpenAI GPT-3.5               | 12234ms                    | 5                   | $0.12           |
+| RAG Retrieval (KB Search)   | Hugging Face (Python)        | 392ms                  | 4.8                   | 0           |
+| RAG Generation (Answer)     | OpenAI GPT-3.5               | 1543ms                 | 5                   | $0.07           |
+| Orchestration Synthesis     | OpenAI GPT-3.5               | 1468ms                 | 4.5                   | $0.06           |
 
 **Key takeaways:**
 
