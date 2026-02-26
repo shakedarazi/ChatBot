@@ -1,7 +1,5 @@
 # Sample Execution Logs (Rubric §9)
 
-These logs demonstrate multi-step plan orchestration with `USE_PLAN=true`.
-
 ## Log Files
 
 | File                                   | Query                                                            | Expected Tools                                        |
@@ -15,5 +13,3 @@ Each log contains:
 1. **Plan** — planner JSON output `{ plan: [...], final_answer_synthesis_required }`
 2. **Intermediate results** — each tool's output
 3. **Final answer** — synthesized response
-
-To regenerate: run server with `USE_PLAN=true`, send each query via chat, capture console output.

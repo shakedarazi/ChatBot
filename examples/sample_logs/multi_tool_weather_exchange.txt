@@ -1,22 +1,62 @@
-[Sample log - run with USE_PLAN=true to capture actual output]
-
 Query: What's the weather in Berlin and the GBP to ILS exchange rate?
 
 --- Plan ---
-{"plan":[{"tool":"getWeather","parameters":{"city":"Berlin"}},{"tool":"getExchangeRate","parameters":{"from":"GBP","to":"ILS"}}],"final_answer_synthesis_required":true}
+ {
+   "plan": [
+     {
+       "tool": "getWeather",
+       "parameters": {
+         "city": "Berlin"
+       }
+     },
+     {
+       "tool": "getExchangeRate",
+       "parameters": {
+         "from": "GBP",
+         "to": "ILS"
+       }
+     }
+   ],
+   "final_answer_synthesis_required": true
+ }
 
 --- Intermediate Results ---
-[executor] step 1/2: getWeather
-[benchmark] tool-getWeather latency=XXXms
-[executor] tool getWeather result: Berlin weather: ...
+ [executor] STEP 1/2
+ [executor] tool: getWeather
+ [executor] resolved parameters: {
+   "city": "Berlin"
+ }
+ [executor] ✅ success: getWeather
+ [executor] result (stored for placeholders): the weather in Berlin : 10.3°C, , wind 7.2 km/h
+ --------------------------------
+ [executor] STEP 2/2
+ [executor] tool: getExchangeRate
+ [executor] resolved parameters: {
+   "from": "GBP",
+   "to": "ILS"
+ }
+ [executor] ✅ success: getExchangeRate
+ [executor] result (stored for placeholders): 4.7
 
-[executor] step 2/2: getExchangeRate
-[benchmark] tool-getExchangeRate latency=XXXms
-[executor] tool getExchangeRate result: 1 GBP = X.XX ILS
+ ==============================
+ [executor] TOOL RESULTS SUMMARY:
+ [
+   {
+     "tool": "getWeather",
+     "success": true,
+     "result": "the weather in Berlin : 10.3°C, , wind 7.2 km/h"
+   },
+   {
+     "tool": "getExchangeRate",
+     "success": true,
+     "result": 4.7
+   }
+ ]
+ ==============================
 
-[executor] synthesizing final answer
-[benchmark] synthesis latency=XXXms
-[benchmark] total-plan latency=XXXms
+ [executor] final_answer_synthesis_required=true → running synthesis
+ [synthesis] combining results from 2 tools
+
 
 --- Final Answer ---
-In Berlin, the current weather is [details]. The GBP to ILS exchange rate is approximately X.XX shekels per pound.
+The current weather in Berlin is 10.3°C with a wind speed of 7.2 km/h. The exchange rate from GBP to ILS is 4.7.
