@@ -1,6 +1,6 @@
 # Multi-Step Orchestration Validation Queries
 
-Run with `USE_PLAN=true` (plan mode is OFF by default).
+Plan orchestration is always active — every user message goes through the planner.
 
 ## Scenario 1: Weather + Exchange Rate
 
