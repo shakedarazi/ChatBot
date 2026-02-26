@@ -167,7 +167,13 @@ TARGET LANGUAGE: {target_language}
 Rules:
 - Base your answer strictly on the chunks above. Cite the source when relevant.
 - If the chunks do not contain the answer, say so clearly.
-- Keep the answer concise and accurate.`;
+- Keep the answer concise and accurate.
+- IMPORTANT: Answer ONLY the requested QUERY FOCUS ({query_token}). Do not answer other parts of the user's request.
+- DO NOT perform currency conversion, exchange-rate lookup, or any derived calculations (e.g., multiplying price by a rate). Conversion is handled by other tools.
+- If QUERY FOCUS is "price":
+  - Return ONLY the base price and currency from the chunks (e.g., "$1,999 USD") plus an optional single source line.
+  - Do NOT provide ranges, approximations, rounding, or extra explanations.
+  - Do NOT mention any exchange rate (even if the user asked to convert).`;
 
 // ========== Synthesis ==========
 export const SYNTHESIS_PROMPT = `Merge the following tool results into a single, coherent answer. Preserve key facts from each result. Do not contradict any result.
