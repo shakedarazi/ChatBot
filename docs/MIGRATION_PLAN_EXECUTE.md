@@ -1,5 +1,7 @@
 # Repository Structure Refactor — Execute-Ready Plan
 
+> **Status: COMPLETED.** This document is a historical record of the migration from `packages/` to `apps/` and `services/`. The migration has been fully applied. All paths in the current codebase use the new layout (`apps/server`, `apps/client`, `services/python`, `scripts/dev.ts`, `examples/sample_logs`).
+
 ## 1) Audit Results
 
 ### VERIFIED

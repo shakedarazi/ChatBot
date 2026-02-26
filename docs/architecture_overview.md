@@ -2,7 +2,7 @@
 
 ## Overview
 
-This application is a multi-intent chatbot that uses Retrieval-Augmented Generation (RAG) for product-related queries. Users ask questions about products (e.g., Laptop Pro X1, Smart Watch S5); the system retrieves relevant chunks from a document store, injects them into a prompt, and generates an answer from that context. The RAG path is one of several intents; others include weather, exchange rates, math, and review analysis.
+This application is a multi-tool chatbot that uses plan orchestration to route user messages to one or more tools. Retrieval-Augmented Generation (RAG) is used for product-related queries: the system retrieves relevant chunks from a document store, injects them into a prompt, and generates an answer from that context. Other tools include weather, exchange rates, math, review analysis, and general chat. The chatbot supports both Hebrew and English.
 
 ## The Problem: Hallucination
 
@@ -25,17 +25,17 @@ This shifts correctness from model memory to the retrieval and grounding step. T
 ```
 ┌─────────────┐     ┌──────────────────────────────────────────────────────────────┐
 │   React     │     │                    Express (TypeScript)                       │
-│   Client    │────▶│  Chat Controller → Chat Service → Router / Planner            │
-└─────────────┘     │       → Product-Info Service → searchKB (HTTP)                │
+│   Client    │────▶│  Chat Controller → Chat Service → Planner                    │
+└─────────────┘     │       → Plan Executor → Tools (including Product-Info)        │
                     └──────────────────────────────────────────────────────────────┘
                                          │                          │
                                          ▼                          ▼
                     ┌────────────────────────────┐    ┌─────────────────────────────┐
-                    │  Python FastAPI (port 8000) │    │  Ollama (router, general)    │
-                    │  - /search_kb               │    │  OpenAI (RAG, fallbacks)     │
-                    │  - /analyze (sentiment)    │    └─────────────────────────────┘
-                    │  KBService: embeddings +   │
-                    │  ChromaDB queries          │
+                    │  Python FastAPI (port 8000) │    │  Ollama (general chat)       │
+                    │  - /search_kb               │    │  OpenAI (planning, RAG,      │
+                    │  - /analyze (sentiment)     │    │    synthesis, fallback)       │
+                    │  KBService: embeddings +    │    └─────────────────────────────┘
+                    │  ChromaDB queries           │
                     └────────────────────────────┘
                                          │
                                          ▼
@@ -51,16 +51,18 @@ This shifts correctness from model memory to the retrieval and grounding step. T
 | Component                | Role                                                                                   |
 | ------------------------ | -------------------------------------------------------------------------------------- |
 | **API layer**            | Receives user message, returns assistant reply. Stateless.                             |
-| **Chat service**         | Branches on USE_PLAN: planner path or router path.                                     |
-| **Router**               | Classifies intent; dispatches to tools. Uses Ollama first, OpenAI fallback.            |
+| **Chat service**         | Calls planner; dispatches to plan executor or generalChat fallback.                    |
+| **Planner**              | Generates a JSON execution plan from user input (Ollama first, OpenAI fallback).       |
+| **Plan executor**        | Runs tools sequentially, resolves placeholders, triggers synthesis if needed.           |
 | **Product-info service** | Builds KB query, calls Python /search_kb, formats chunks, calls OpenAI for generation. |
 | **Python service**       | Embeds query, queries ChromaDB, returns chunks. Hosts sentiment pipeline.              |
 | **ChromaDB**             | Stores embeddings and chunk text. Persistent on disk.                                  |
-| **OpenAI**               | RAG answer generation (gpt-4.1), router fallback, synthesis.                           |
+| **OpenAI**               | Planning, RAG answer generation (gpt-4.1), review analysis, synthesis.                 |
+| **Ollama**               | General chat (primary), with OpenAI fallback.                                          |
 
 ### Stateless vs Stateful
 
-- **Stateless:** Express server, chat service, router, plan executor, product-info service
+- **Stateless:** Express server, chat service, planner, plan executor, product-info service
 - **Stateful:** Python service (loaded models), KBService (model + Chroma client), ChromaDB, conversation repository (history.json)
 
 ### Data Persistence
@@ -76,19 +78,19 @@ This shifts correctness from model memory to the retrieval and grounding step. T
 ### Logical Steps (Product RAG)
 
 1. User sends: "What's the battery life of Laptop Pro X1?"
-2. Chat service receives message; USE_PLAN off → routeMessage.
-3. Classifier: intent = getProductInformation, product_name = "Laptop Pro X1", query = "battery".
-4. Router calls getProductInformation("Laptop Pro X1", "battery", originalQuestion).
+2. Chat service receives message; calls planPlanner.
+3. Planner outputs plan: `getProductInformation(product_name: "Laptop Pro X1", query: "battery")`.
+4. Plan executor calls getProductInformation("Laptop Pro X1", "battery", originalQuestion).
 5. buildKBQuery returns: "Laptop Pro X1 battery What's the battery life of Laptop Pro X1?"
 6. searchKB(kbQuery, 3) → POST to http://localhost:8000/search_kb.
 7. Python: SentenceTransformer encodes query → 384-dim vector.
 8. ChromaDB: collection.query(embedding, n_results=3) → top-3 by cosine similarity.
 9. Python returns chunks with text, metadata (source, chunk_index), score.
-10.   Product-info: if chunks empty → "I couldn't find information..."
-11.   Product-info: formatChunks → concatenate with source labels.
-12.   RAG_PRODUCT_PROMPT filled with chunks, question, query_token, target_language.
-13.   OpenAI generateText(prompt, temperature=0.3, maxTokens=500).
-14.   Response returned to user.
+10. Product-info: if chunks empty → "I couldn't find information..."
+11. Product-info: formatChunks → concatenate with source labels.
+12. RAG_PRODUCT_PROMPT filled with chunks, question, query_token, target_language.
+13. OpenAI generateText(prompt, temperature=0.3, maxTokens=500).
+14. Response returned to user.
 
 ### Mermaid Sequence Diagram
 
@@ -97,7 +99,8 @@ sequenceDiagram
     participant User
     participant API as Express API
     participant Chat as Chat Service
-    participant Router
+    participant Planner as Planner
+    participant Exec as Plan Executor
     participant PI as Product-Info Service
     participant TS as TypeScript KB Client
     participant Py as Python Service
@@ -106,9 +109,10 @@ sequenceDiagram
 
     User->>API: POST /api/chat "battery of Laptop Pro X1?"
     API->>Chat: sendMessage
-    Chat->>Router: routeMessage
-    Router->>Router: classifyIntent (Ollama/OpenAI)
-    Router->>PI: getProductInformation
+    Chat->>Planner: planPlanner(prompt)
+    Planner-->>Chat: plan JSON
+    Chat->>Exec: executePlan(plan, prompt, context)
+    Exec->>PI: getProductInformation
 
     PI->>PI: buildKBQuery
     PI->>TS: searchKB(query, 3)
@@ -125,9 +129,9 @@ sequenceDiagram
         PI->>PI: formatChunks, build RAG prompt
         PI->>OpenAI: generateText(RAG_PRODUCT_PROMPT)
         OpenAI-->>PI: grounded answer
-        PI-->>Router: message
+        PI-->>Exec: message
     end
-    Router-->>Chat: message
+    Exec-->>Chat: result
     Chat-->>API: response
     API-->>User: JSON {message}
 ```
@@ -185,7 +189,7 @@ if brk > len(chunk) - 80:
 ### Tool Separation
 
 - **Python:** Embeddings, ChromaDB, sentiment. No orchestration.
-- **TypeScript:** Routing, RAG prompt construction, OpenAI calls.
+- **TypeScript:** Planning, RAG prompt construction, OpenAI calls.
 
 Rationale: Python has the ML stack (sentence-transformers, ChromaDB); TypeScript owns product logic and API.
 

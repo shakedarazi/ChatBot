@@ -8,20 +8,19 @@ Step-by-step verification against the grading rubric. Commands are for Windows (
 
 Key files (as of inspection):
 
-| Path                                            | Purpose                                                                                                  |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `apps/server/prompts.ts`                        | All prompts (ROUTER_PROMPT, ROUTER_SYSTEM_PROMPT, RAG_GENERATION_PROMPT, ORCHESTRATION_SYNTHESIS_PROMPT) |
-| `apps/server/services/chat.service.ts`          | sendMessage → planPlanner / routeMessage                                                                 |
-| `apps/server/services/planner.service.ts`       | planPlanner(userInput) → RouterPlan                                                                      |
-| `apps/server/services/plan-executor.service.ts` | executePlan, tool dispatch, synthesis                                                                    |
-| `apps/server/services/router.service.ts`        | Single-intent routing                                                                                    |
-| `apps/server/services/product-info.service.ts`  | getProductInformation, searchKB, RAG                                                                     |
-| `services/python/server.py`                     | /analyze, /search_kb                                                                                     |
-| `services/python/index_kb.py`                   | KB indexing (load, chunk, embed, ChromaDB)                                                               |
-| `services/python/kb_service.py`                 | ChromaDB + sentence-transformers                                                                         |
-| `data/products/*.txt`                           | Product docs                                                                                             |
-| `examples/sample_logs/*.txt`                    | Orchestration logs                                                                                       |
-| `docs/architecture.md`, `docs/repo_map.md`      | Architecture docs                                                                                        |
+| Path                                            | Purpose                                                              |
+| ----------------------------------------------- | -------------------------------------------------------------------- |
+| `apps/server/prompts.ts`                        | All prompts (ROUTER_SYSTEM_PROMPT, RAG_PRODUCT_PROMPT, SYNTHESIS_PROMPT, etc.) |
+| `apps/server/services/chat.service.ts`          | sendMessage → planPlanner → executePlan (or generalChat fallback)    |
+| `apps/server/services/planner.service.ts`       | planPlanner(userInput) → RouterPlan                                  |
+| `apps/server/services/plan-executor.service.ts` | executePlan, tool dispatch, synthesis                                |
+| `apps/server/services/product-info.service.ts`  | getProductInformation, searchKB, RAG                                 |
+| `services/python/server.py`                     | /analyze, /search_kb, /health                                        |
+| `services/python/index_kb.py`                   | KB indexing (load, chunk, embed, ChromaDB)                           |
+| `services/python/kb_service.py`                 | ChromaDB + sentence-transformers                                     |
+| `data/products/*.txt`                           | Product docs (3 files)                                               |
+| `examples/sample_logs/*.txt`                    | Orchestration logs                                                   |
+| `docs/architecture.md`, `docs/repo_map.md`      | Architecture docs                                                    |
 
 **Environment:** `.env` must be in `apps/server/`. Loaded via `dotenv.config({ path: path.join(import.meta.dir, '.env') })` in `apps/server/index.ts`.
 
@@ -50,17 +49,16 @@ pip install -r requirements.txt
 
 Create `apps/server/.env`:
 
-| Variable         | Required for runnig | Notes                                            |
-| ---------------- | ------------------- | ------------------------------------------------ |
-| `OPENAI_API_KEY` | Yes                 | For RAG, synthesis, fallback                     |
-| `PY_SERVICE_URL` | No                  | Default `http://localhost:8000`                  |
-| `OLLAMA_URL`     | No                  | Default `http://localhost:11434`                 |
-| `OLLAMA_MODEL`   | No                  | Default `llama3.2`                               |
-| `USE_PLAN`       | No                  | `true` enables plan orchestration (default: off) |
-| `DEFAULT_LOCALE` | No                  | `he` or `en` override                            |
-| `PORT`           | No                  | Default `3000`                                   |
+| Variable         | Required | Default                  | Description                  |
+| ---------------- | -------- | ------------------------ | ---------------------------- |
+| `OPENAI_API_KEY` | Yes      | —                        | OpenAI API key               |
+| `PY_SERVICE_URL` | No       | `http://localhost:8000`  | Python microservice URL      |
+| `OLLAMA_URL`     | No       | `http://localhost:11434` | Ollama server URL            |
+| `OLLAMA_MODEL`   | No       | `llama3.2`               | Ollama model name            |
+| `DEFAULT_LOCALE` | No       | auto-detect              | Force `he` or `en`           |
+| `PORT`           | No       | `3000`                   | Server port                  |
 
-### 4. Index KB (in service )
+### 4. Index KB
 
 ```powershell
 cd services/python
@@ -85,7 +83,7 @@ From root: `bun run build` (in apps/server) to verify TypeScript compiles.
 ```powershell
 cd services/python
 .\.venv\Scripts\activate
-uvicorn server:app --reload --host 0.0.0.0 --port 8000
+uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
 Expect: "Uvicorn running on http://0.0.0.0:8000", "KB service initialized successfully".
@@ -96,7 +94,7 @@ Expect: "Uvicorn running on http://0.0.0.0:8000", "KB service initialized succes
 bun run dev
 ```
 
-Expect: server on port 3000, client on Vite port.
+Expect: server on port 3000, client on port 5173 (Vite).
 
 Verify Python service: `Invoke-RestMethod -Uri http://localhost:8000/health -Method Get`
 
@@ -104,11 +102,9 @@ Verify Python service: `Invoke-RestMethod -Uri http://localhost:8000/health -Met
 
 ## C. Verification Steps by Rubric Item
 
-### 1. Router & Planning
+### 1. Planning
 
-**Goal:** Detect complex intents, return valid plan JSON, detect getProductInformation.
-
-**Setup:** `USE_PLAN=true` in `apps/server/.env`, or set before run. Start Python service + TS server.
+**Goal:** Every user message goes through the planner. Detect complex intents, return valid plan JSON, detect getProductInformation.
 
 **Test prompts:**
 
@@ -126,13 +122,13 @@ Invoke-RestMethod -Uri http://localhost:3000/api/chat -Method Post -Body $body -
 **Expected:**
 
 - Complex query: server logs show plan JSON with `plan` array and `final_answer_synthesis_required`
-- Product query: `intent: getProductInformation` in logs (single-intent) or planner returns getProductInformation tool
+- Product query: planner returns getProductInformation tool in plan
 - HE query: response in Hebrew
 
 **Pass/Fail:**
 
 - [ ] Plan JSON has `plan` (array) and `final_answer_synthesis_required` (boolean)
-- [ ] getProductInformation intent detected for product queries
+- [ ] getProductInformation detected for product queries
 - [ ] Complex multi-tool query produces multi-step plan
 
 ---
@@ -186,7 +182,7 @@ Expect: `chunks` array; each chunk has `text`, `metadata.source`, `metadata.chun
 
 **Pass/Fail:**
 
-- [ ] Indexer loads from `data/products` (or DATA_DIR)
+- [ ] Indexer loads from `data/products`
 - [ ] Chunking uses 200–500 words with overlap
 - [ ] ChromaDB used (PersistentClient)
 - [ ] /search_kb returns relevant chunks
@@ -213,7 +209,7 @@ Expect: `chunks` array; each chunk has `text`, `metadata.source`, `metadata.chun
 **Pass/Fail:**
 
 - [ ] getProductInformation triggers searchKB (Python /search_kb)
-- [ ] RAG_GENERATION_PROMPT receives chunks
+- [ ] RAG_PRODUCT_PROMPT receives chunks
 - [ ] Answer is grounded (reflects product docs)
 - [ ] HE query yields Hebrew response
 
@@ -221,7 +217,7 @@ Expect: `chunks` array; each chunk has `text`, `metadata.source`, `metadata.chun
 
 ### 5. Knowledge Base Data
 
-**Goal:** `data/products` exists with 3–5 rich .txt docs.
+**Goal:** `data/products` exists with 3 rich .txt docs.
 
 **Commands:**
 
@@ -229,32 +225,31 @@ Expect: `chunks` array; each chunk has `text`, `metadata.source`, `metadata.chun
 Get-ChildItem data\products\*.txt
 ```
 
-Expect: 3–5 files (e.g. laptop_pro_x1.txt, smart_watch_s5.txt, wireless_headphones_z3.txt).
+Expect: 3 files (e.g. laptop_pro_x1.txt, smart_watch_s5.txt, wireless_headphones_z3.txt).
 
-**Content:** Each file should have specs, price, features suitable for demo queries. At least one with minimal Hebrew.
+**Content:** Each file should have specs, price, features suitable for demo queries.
 
 **Pass/Fail:**
 
-- [ ] 3–5 .txt files
+- [ ] 3 .txt files
 - [ ] Rich content (specs, price, features)
-- [ ] At least one file with Hebrew
 
 ---
 
 ### 6. Prompt Engineering
 
-**Goal:** ROUTER_PROMPT / ROUTER_SYSTEM_PROMPT include few-shot planning; SYNTHESIS_PROMPT has merge instructions; prompts in prompts.ts.
+**Goal:** ROUTER_SYSTEM_PROMPT includes few-shot planning; SYNTHESIS_PROMPT has merge instructions; prompts in prompts.ts.
 
 **Check files:**
 
 ```powershell
-Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|ORCHESTRATION_SYNTHESIS_PROMPT|RAG_GENERATION"
+Select-String -Path "apps\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|SYNTHESIS_PROMPT|RAG_PRODUCT_PROMPT"
 ```
 
 **Inspect prompts.ts:**
 
 - ROUTER_SYSTEM_PROMPT: few-shot examples (weather+exchange, review+product, exchange+product+math)
-- ORCHESTRATION_SYNTHESIS_PROMPT: "Merge", "Preserve key facts", "Do not contradict"
+- SYNTHESIS_PROMPT: "Merge", "Preserve key facts", "Do not contradict"
 - All prompts exported from prompts.ts (no inline strings in services)
 
 **Pass/Fail:**
@@ -291,7 +286,7 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 
 **Check:** `apps/server/README.md` sections:
 
-- "Performance Benchmarks" with table (Router, Planner, KB Search, RAG Generation, Synthesis, etc.)
+- "Performance Benchmarks" with table (Planner, KB Search, RAG Generation, Synthesis, etc.)
 - "Model Comparison (Ollama vs OpenAI)" table
 - Cost/accuracy trade-off text
 
@@ -319,7 +314,7 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 2. Intermediate tool results
 3. Final synthesized answer
 
-**To regenerate:** Run server with `USE_PLAN=true`, send each canonical query via chat, capture console output.
+**To regenerate:** Run the server, send each canonical query via chat, capture console output.
 
 **Pass/Fail:**
 
@@ -351,7 +346,7 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 
 ## D. Canonical Demo Queries
 
-### 3 Orchestration Scenarios (USE_PLAN=true)
+### 3 Orchestration Scenarios
 
 | #   | EN                                                                                                        | HE                                                                                |
 | --- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -359,7 +354,7 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 | 2   | Analyze this review about the Smart Watch S5: "Great battery but band uncomfortable." What are its specs? | תנתח את הביקורת על Smart Watch S5: "סוללה מעולה אבל הרצועה לא נוחה." מהם המפרטים? |
 | 3   | Laptop Pro X1 costs how much in USD? Convert that to shekels and add 50.                                  | כמה עולה Laptop Pro X1 בדולרים? המר לשקלים והוסף 50.                              |
 
-### 2 RAG-Only Scenarios (single-intent)
+### 2 RAG-Only Scenarios (single-tool plan)
 
 | #   | EN                                                | HE                                     |
 | --- | ------------------------------------------------- | -------------------------------------- |
@@ -373,10 +368,9 @@ Select-String -Path "packages\server\prompts.ts" -Pattern "ROUTER_SYSTEM_PROMPT|
 ### Ollama insufficient RAM / OpenAI-only mode
 
 1. Leave Ollama uninstalled or stopped.
-2. Server falls back to OpenAI for router and planner.
+2. Server falls back to OpenAI for general chat.
 3. Set `OPENAI_API_KEY` in `apps/server/.env`.
-4. Set `USE_PLAN=true` for orchestration.
-5. Validation: Same demo queries; expect `[benchmark] router-openai` and `[benchmark] router-planner-openai` in logs instead of Ollama.
+4. Validation: Same demo queries; expect `[benchmark] router-planner-openai` in logs instead of Ollama.
 
 ### Python dependency issues
 
@@ -395,12 +389,6 @@ pip install -r requirements.txt
 ### /search_kb contract mismatch
 
 Response must be `{ chunks: [ { text, metadata: { source, chunk_index }, score } ] }`. Check `services/python/server.py` maps kb_service output to this shape. TypeScript client in `apps/server/llm/python-kb-client.ts` expects this.
-
-### USE_PLAN env mismatch
-
-- Plan orchestration OFF by default.
-- Set `USE_PLAN=true` in `apps/server/.env` to enable.
-- Do not use `USE_PLAN_ROUTING`; only `USE_PLAN` is read.
 
 ---
 
