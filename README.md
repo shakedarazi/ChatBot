@@ -37,6 +37,47 @@ User → POST /api/chat → Planner → JSON plan
 - 🌍 **Bilingual** — auto-detects and responds in Hebrew or English
 - 🏠 **Local-first** — Ollama for free inference, OpenAI only where needed
 
+## 📊 ביצועים ועלויות (Performance & Cost)
+
+Benchmarks measured on a local development environment. Latency is the average across multiple runs. Quality is rated 1–5 based on output accuracy and relevance.
+
+| רכיב המערכת / תרחיש        | מודל (ספק)                   | זמן תגובה ממוצע (ms) | איכות / דיוק (1‑5) | עלות משוערת |
+| --------------------------- | ---------------------------- | -------------------- | ------------------- | ----------- |
+| Router (סיווג & תכנון)      | Ollama (Llama3)              | 4572                 | —                   | 0           |
+| Router (סיווג & תכנון)      | OpenAI GPT-3.5 (Fallback)    | 5961                 | 5                   | $           |
+| General Chat                | Ollama (Llama3)              | 1299                 | —                   | 0           |
+| Review Sentiment (Basic)    | Hugging Face (Python)        | —                    | 4.5                 | 0           |
+| Review Analysis (Full)      | OpenAI GPT-3.5               | —                    | 5                   | $           |
+| RAG Retrieval (KB Search)   | Hugging Face (Python)        | 392                  | 5                   | 0           |
+| RAG Generation (Answer)     | OpenAI GPT-3.5               | 1543                 | 5                   | $           |
+| Orchestration Synthesis     | OpenAI GPT-3.5               | 1468                 | 5                   | $           |
+
+**Key takeaways:**
+
+- RAG Retrieval is the fastest component (392 ms) — local embeddings + ChromaDB avoid network round-trips
+- Router/Planner is the slowest step (~4500–6000 ms) regardless of provider; Ollama is ~25% faster than the OpenAI fallback
+- General Chat via Ollama runs at 1299 ms with zero API cost
+- OpenAI-based components (RAG Generation, Synthesis) are consistent at ~1500 ms and score 5/5 on quality
+- All local components (Ollama, Hugging Face) have zero API cost; OpenAI cost scales with usage
+- Review Sentiment (Basic) runs entirely on-device via DistilBERT; Full analysis requires OpenAI for ABSA
+
+<details>
+<summary>Notes: latency data mappings</summary>
+
+| Latency source name   | Mapped to table row         |
+| --------------------- | --------------------------- |
+| Router (Ollama)       | Router (סיווג & תכנון) — Ollama |
+| Router (OpenAI)       | Router (סיווג & תכנון) — OpenAI |
+| Planner (Ollama)      | Same as Router (Ollama); in the current architecture the planner serves as the router |
+| Kb search             | RAG Retrieval (KB Search)   |
+| RAG generation        | RAG Generation (Answer)     |
+| General Chat          | General Chat                |
+| Orchestration synthesis | Orchestration Synthesis   |
+
+Review Sentiment (Basic) and Review Analysis (Full) had no latency data provided — marked as "—".
+
+</details>
+
 ## ⚙️ How to Run
 
 ### Prerequisites
