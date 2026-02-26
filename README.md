@@ -58,7 +58,7 @@ Benchmarks measured on a local development environment. Latency is the average a
 - Ollama ~25% faster than OpenAI fallback for planning (4572 vs 5961 ms)
 - All local components (Ollama, Hugging Face, ChromaDB): zero API cost
 - OpenAI components consistently score 5/5 on quality at ~1500 ms
-- See [ניתוח ומסקנות (מורחב)](#3-ניתוח-ומסקנות-מורחב) for architectural analysis of these results
+- See [Analysis & Conclusions](#3-analysis--conclusions-extended) for architectural analysis of these results
 
 <details>
 <summary>Notes: latency data mappings</summary>
@@ -77,101 +77,101 @@ Review Sentiment (Basic) and Review Analysis (Full) had no latency data provided
 
 </details>
 
-## 3. ניתוח ומסקנות (מורחב)
+## 3. Analysis & Conclusions (Extended)
 
-ניתוח ארכיטקטוני מעמיק של ההחלטות התכנוניות, ההשפעות והפשרות במערכת. הניתוח מבוסס על נתוני הביצועים בטבלה שלעיל ועל הארכיטקטורה בפועל כפי שמשתקפת בקוד.
-
----
-
-### 🧠 בחירת מודלים: מקומיים מול ענן
-
-כל רכיב במערכת משתמש במודל שנבחר על בסיס האיזון בין ביצועים, עלות, דיוק ואמינות:
-
-**Router/Planner — Ollama (ראשוני) → OpenAI (fallback):**
-הפלנר מייצר תוכנית JSON קטנה (~100–150 טוקנים output). Ollama מהיר יותר (~4572ms מול ~5961ms) ובחינם, אך הדיוק אינו מובטח — לכן מופעל fallback אוטומטי ל-OpenAI כשהפלט אינו JSON תקין. הבחירה הזו חוסכת עלות API בכ-60–70% מהקריאות (כשOllama מצליח), תוך שמירה על אמינות דרך ה-fallback. בקוד (`planner.service.ts`): Ollama נקרא ראשון עם `timeoutMs: 30000`; אם נכשל או מחזיר JSON לא תקין — עוברים ל-`gpt-4.1`.
-
-**General Chat — Ollama (ראשוני) → OpenAI (fallback):**
-שיחה חופשית מייצרת תגובות ארוכות (~100–300 טוקנים). הפעלת OpenAI לכל הודעה תייקר משמעותית, לכן Ollama משמש כמודל ראשי (1299ms, עלות 0). ב-`general-chat.service.ts` מופעל מנגנון retry לשפה: אם התגובה בשפה שגויה, נשלחת קריאה נוספת עם הוראת שפה מפורשת. אם Ollama נכשל (timeout/network) — fallback ל-OpenAI עם `maxTokens: 300`.
-
-**RAG Retrieval — sentence-transformers + ChromaDB (מקומי לחלוטין):**
-הרכיב המהיר ביותר (392ms). יצירת embeddings היא משימת חישוב, לא generative — מודל מקומי (`all-MiniLM-L6-v2`) מספיק לחלוטין. ChromaDB מאחסן וקטורים מקומית, ללא תקשורת רשת חיצונית. הבחירה במודל מקומי כאן היא חד-משמעית: אין פשרה באיכות, אין עלות, וזמן התגובה מינימלי.
-
-**RAG Generation — OpenAI בלבד:**
-יצירת תשובות grounded מחייבת דיוק גבוה — המודל חייב לענות אך ורק מתוך ה-chunks ולא להמציא עובדות. `gpt-4.1` עם `temperature: 0.3` מבטיח instruction-following חזק. מודלים מקומיים לא עומדים ברף הנדרש לדיוק של RAG grounding — הסיכון ל-hallucination גבוה מדי.
-
-**Review Analysis — DistilBERT (בסיסי) + OpenAI (מלא):**
-סנטימנט בסיסי (חיובי/שלילי) רץ מקומית דרך DistilBERT ב-Python — מהיר וחינמי. ניתוח ABSA מלא (Aspect-Based Sentiment Analysis) דורש הבנת היבטים, דעות ויחסים ביניהם, כולל לולאת self-correction לתיקון JSON — מורכב מדי למודל מקומי.
-
-**Synthesis — OpenAI בלבד:**
-מיזוג תוצאות ממספר כלים לתשובה קוהרנטית (1468ms). דורש instruction-following חזק ועקביות עובדתית. `gpt-4.1` עם `temperature: 0.5` מאפשר גמישות בניסוח תוך שמירה על דיוק. אם OpenAI נכשל — fallback לשרשור תוצאות (מאבדים קוהרנטיות אך שומרים על מידע).
+An in-depth look at the architectural decisions, their consequences, and the trade-offs in this system. The analysis is grounded in the benchmark data above and the actual codebase.
 
 ---
 
-### ⚙️ השפעת ארכיטקטורת Microservices
+### 🧠 Model Selection: Local vs Cloud
 
-המערכת מחולקת לשלושה שירותים עיקריים: TypeScript server (orchestration), Python service (AI/ML), ו-Ollama (local LLM). החלוקה הזו משפיעה על:
+Each component uses the model that best fits its accuracy requirements, latency budget, and cost constraints:
 
-**📈 ביצועים:**
-תקשורת HTTP בין TypeScript ל-Python מוסיפה ~50–100ms overhead לכל קריאה (`/search_kb`, `/analyze`). אך ההפרדה מאפשרת להריץ מודלי ML כבדים (PyTorch, transformers) בסביבת Python מותאמת, בזמן שה-orchestration רץ ב-TypeScript/Bun שהוא מהיר משמעותית לעיבוד I/O ותזמור. ChromaDB רץ in-process עם Python, כך שחיפוש וקטורי לא דורש hop נוסף.
+**Router/Planner — Ollama (primary) → OpenAI (fallback):**
+The planner produces a small JSON plan (~100–150 output tokens). We try Ollama first because it's faster (~4572ms vs ~5961ms) and free. The catch: Ollama doesn't always return valid JSON, so we automatically fall back to OpenAI when parsing fails. This saves API costs on roughly 60–70% of requests (when Ollama succeeds) while keeping reliability through the fallback. In `planner.service.ts`: Ollama is called with `timeoutMs: 30000`; if it fails or returns unparseable output, we switch to `gpt-4.1`.
 
-**💰 עלות:**
-שירות Python רץ מקומית — embeddings וסנטימנט בחינם. רק RAG generation, synthesis ו-review analysis (full) משתמשים ב-API בתשלום. Planner משתמש ב-Ollama ראשון — OpenAI נקרא רק כ-fallback. בקריאה טיפוסית של general chat, העלות היא 0 (Ollama בלבד). בקריאת multi-tool: ~$0.02–0.03 (planner + כלים + synthesis).
+**General Chat — Ollama (primary) → OpenAI (fallback):**
+Free-form conversation generates longer responses (~100–300 tokens). Routing every message through OpenAI would get expensive fast, so Ollama serves as the primary model (1299ms, $0). In `general-chat.service.ts`, there's a language-retry mechanism: if the response comes back in the wrong language, a second call is made with an explicit language instruction. If Ollama fails entirely (timeout/network), we fall back to OpenAI with `maxTokens: 300`.
 
-**🔄 גמישות:**
-כל כלי (tool) הוא עצמאי — הוספת כלי חדש דורשת: עדכון schema, הוספת handler, מימוש service. שירות Python ניתן להחלפה ללא נגיעה ב-orchestration של TypeScript. כל כלי מנהל את ה-error handling וה-fallback שלו באופן עצמאי.
+**RAG Retrieval — sentence-transformers + ChromaDB (fully local):**
+The fastest component in the system (392ms). Embedding generation is a compute task, not a generative one — the local model (`all-MiniLM-L6-v2`) handles it perfectly. ChromaDB stores vectors locally, so there's no external network call. This is the one place where running locally has zero trade-offs: no quality loss, no cost, minimal latency.
+
+**RAG Generation — OpenAI only:**
+Generating grounded answers demands high accuracy — the model must answer strictly from the retrieved chunks and never fabricate facts. `gpt-4.1` at `temperature: 0.3` provides strong instruction-following. Local models don't meet the bar for RAG grounding; the hallucination risk is too high.
+
+**Review Analysis — DistilBERT (basic) + OpenAI (full):**
+Basic sentiment (positive/negative) runs locally via DistilBERT in Python — fast and free. Full Aspect-Based Sentiment Analysis (ABSA) requires understanding aspects, opinions, and their relationships, plus a self-correction loop to fix malformed JSON output. That's too complex for a local model.
+
+**Synthesis — OpenAI only:**
+Merging results from multiple tools into a single coherent answer (1468ms). This requires strong instruction-following and factual consistency. `gpt-4.1` at `temperature: 0.5` allows some phrasing flexibility while preserving accuracy. If OpenAI fails, we fall back to concatenating the raw tool results — coherence is lost, but the information is preserved.
+
+---
+
+### ⚙️ Microservices Architecture Impact
+
+The system is split into three services: TypeScript server (orchestration), Python service (AI/ML), and Ollama (local LLM). Here's how that split plays out:
+
+**📈 Performance:**
+HTTP calls between TypeScript and Python add ~50–100ms of overhead per request (`/search_kb`, `/analyze`). But the separation lets us run heavy ML models (PyTorch, transformers) in a Python environment tuned for that workload, while orchestration runs on TypeScript/Bun, which is significantly faster for I/O and coordination. ChromaDB runs in-process with Python, so vector search doesn't require an additional network hop.
+
+**💰 Cost:**
+The Python service runs locally — embeddings and sentiment analysis are free. Only RAG generation, synthesis, and full review analysis hit the paid OpenAI API. The planner tries Ollama first, so OpenAI is only called as a fallback. A typical general chat request costs $0 (Ollama only). A full multi-tool query runs ~$0.02–0.03 (planner + tools + synthesis).
+
+**🔄 Flexibility:**
+Each tool is self-contained — adding a new one requires a schema update, a handler, and a service implementation. The Python service can be swapped out without touching the TypeScript orchestration layer. Each tool manages its own error handling and fallback logic independently.
 
 **📐 Scalability:**
-שירות Python הוא stateful (מודלים טעונים בזיכרון) אך ניתן לשכפול אופקי. שרת TypeScript הוא mostly stateless (למעט `history.json`). ChromaDB הוא embedded — לסביבת production יידרש מעבר ל-vector DB מנוהל (Pinecone/Qdrant/Weaviate). שיחות בין משתמשים אינן חולקות state (למעט אותו `conversationId`).
+The Python service is stateful (models loaded in memory) but can be horizontally replicated. The TypeScript server is mostly stateless (except for `history.json`). ChromaDB is embedded — a production deployment would need a managed vector DB (Pinecone/Qdrant/Weaviate). User conversations don't share state (beyond the same `conversationId`).
 
-**🛡️ Isolation of failures:**
-אם שירות Python קורס — TypeScript ממשיך לפעול: weather, exchange, math ו-general chat עדיין עובדים. אם Ollama לא זמין — planner ו-general chat עוברים ל-OpenAI. אם כלי נכשל באמצע plan — ה-executor מטפל בשגיאה (fallback ל-`generalChat` או שרשור תוצאות מוצלחות). ב-synthesis: אם OpenAI נכשל — שרשור תוצאות כ-fallback (מאבד קוהרנטיות, שומר מידע).
-
----
-
-### ⚖️ Trade-offs ואתגרים
-
-**תזמון (Scheduling):**
-ה-executor מריץ כלים סדרתית — placeholder resolution דורש תוצאות מצעדים קודמים (`<result_from_tool_1>`). לא ניתן להריץ כלים תלויים במקביל. כלים בלתי תלויים (למשל weather + exchange) יכולים תיאורטית לרוץ במקביל, אך ה-executor הנוכחי לא תומך בכך. התוצאה: latency של multi-tool query הוא סכום ה-latency של כל הכלים.
-
-**אמינות (Reliability):**
-המערכת מפעילה cascading fallbacks: Ollama → OpenAI עבור planner ו-general chat. אך כל fallback מוסיף latency ועלות. כשל ב-planner = אין plan = נפילה ישירה ל-generalChat (מאבדים יכולת multi-tool). כשל ב-synthesis = שרשור תוצאות (מאבדים קוהרנטיות). אין retry אוטומטי — כישלון הוא סופי ברמת הכלי הבודד.
-
-**תקשורת בין שירותים:**
-HTTP בין TypeScript ↔ Python (ללא message queue, ללא retry). נקודת כשל יחידה עבור `/search_kb` ו-`/analyze`. אין circuit breaker או health-check polling מצד TypeScript. אם Python לא מגיב — הקריאה תיכשל עם timeout, ו-TypeScript ידווח שגיאה למשתמש.
-
-**תקשורת בין מודלים:**
-הפלנר מייצר JSON שחייב להיות parseable. אם Ollama מייצר JSON שגוי — parsing נכשל → fallback ל-OpenAI. Placeholder resolution מבוסס על string replacement — עלול להיות שברירי אם תוצאת כלי מכילה מחרוזות שנראות כמו placeholders. ה-Zod schema validation (`plan.schema.ts`) מבטיח שהתוכנית תקינה מבחינת מבנה, אך לא מבחינת סמנטיקה.
-
-**Latency מול Quality:**
-
-| רכיב | מקומי (Ollama/HF) | ענן (OpenAI) | פשרה |
-|-------|-------------------|--------------|-------|
-| Planner | 4572ms, דיוק — | 5961ms, דיוק 5/5 | מהירות מול אמינות |
-| General Chat | 1299ms, $0 | ~1500ms, $ | עלות מול איכות שפה |
-| RAG Generation | — | 1543ms, 5/5 | אין חלופה — דיוק הכרחי |
-
-**Cost מול Accuracy:**
-- General chat דרך Ollama: $0 לקריאה, אך סיכון לתשובות בשפה מעורבבת
-- Planner דרך Ollama: $0 כשמצליח (~60–70%), ~$0.007 ב-fallback
-- Multi-tool query מלא: ~$0.02–0.03 (planner + tools + synthesis)
-- שיחה חופשית בלבד: $0 אם Ollama מצליח, ~$0.005 ב-fallback
+**🛡️ Failure Isolation:**
+If the Python service goes down, the TypeScript server keeps working — weather, exchange, math, and general chat still function. If Ollama is unavailable, the planner and general chat fall back to OpenAI. If a tool fails mid-plan, the executor handles it gracefully (falls back to `generalChat` or concatenates whatever succeeded). For synthesis: if OpenAI fails, results are concatenated as a fallback — less coherent, but no data is lost.
 
 ---
 
-### 🚀 שיפורים עתידיים
+### ⚖️ Trade-offs & Challenges
 
-| # | שיפור | תיאור | השפעה צפויה |
-|---|-------|-------|-------------|
-| 1 | **Caching** | מטמון לתוצאות planner עבור שאילתות דומות; מטמון chunks ל-RAG queries חוזרות | הפחתת latency וקריאות API ב-30–50% |
-| 2 | **Parallel execution** | הרצת כלים בלתי תלויים במקביל (weather ∥ exchange) בתוך ה-executor | הפחתת latency של multi-tool queries |
-| 3 | **Model routing חכם** | classifier קל (regex/heuristic) לזיהוי single-tool queries ודילוג על הפלנר | חיסכון של ~5000ms ו-$0.007 לקריאות פשוטות |
-| 4 | **Fine-tuning** | אימון מודל מקומי קטן על דוגמאות JSON של ה-planner | החלפת OpenAI fallback, חיסכון עלות |
-| 5 | **Circuit breaker** | הוספת circuit breaker וretry עם exponential backoff לקריאות Python | שיפור אמינות בעת כשלים זמניים |
-| 6 | **gRPC** | החלפת HTTP ב-gRPC לתקשורת TypeScript ↔ Python | הפחתת overhead של ~30–50ms לקריאה |
-| 7 | **Managed vector DB** | מעבר מ-ChromaDB embedded ל-Pinecone/Qdrant/Weaviate | scalability ו-persistence בסביבת production |
-| 8 | **Redis** | מעבר מ-`history.json` ל-Redis לניהול שיחות | scalability ומניעת data loss |
-| 9 | **Score threshold** | סינון chunks עם similarity score נמוך לפני שליחה ל-RAG generation | הפחתת noise ושיפור דיוק תשובות RAG |
-| 10 | **Query expansion** | שימוש ב-LLM להרחבת/ניסוח מחדש של ה-KB query לפני חיפוש | שיפור recall של retrieval |
+**Scheduling:**
+The executor runs tools sequentially because placeholder resolution (`<result_from_tool_1>`) requires results from previous steps. Dependent tools can't be parallelized by definition. Independent tools (e.g., weather + exchange) could theoretically run concurrently, but the current executor doesn't support that. The result: total latency for a multi-tool query equals the sum of all individual tool latencies.
+
+**Reliability:**
+The system uses cascading fallbacks: Ollama → OpenAI for the planner and general chat. But each fallback adds latency and cost. If the planner fails entirely, there's no plan — the system drops straight to `generalChat`, losing multi-tool capability. If synthesis fails, results are concatenated instead of merged. There's no automatic retry — a tool failure is final at the individual tool level.
+
+**Inter-service communication:**
+TypeScript ↔ Python communication is plain HTTP — no message queue, no retry. `/search_kb` and `/analyze` are single points of failure. There's no circuit breaker or health-check polling from the TypeScript side. If Python stops responding, the request times out and the user sees an error.
+
+**Inter-model communication:**
+The planner outputs JSON that must be parseable by the executor. If Ollama produces malformed JSON, parsing fails and we fall back to OpenAI. Placeholder resolution relies on string replacement, which is fragile if a tool's output happens to contain placeholder-like strings. Zod schema validation (`plan.schema.ts`) ensures the plan is structurally valid, but doesn't catch semantic errors.
+
+**Latency vs Quality:**
+
+| Component | Local (Ollama/HF) | Cloud (OpenAI) | Trade-off |
+|-----------|-------------------|----------------|-----------|
+| Planner | 4572ms, accuracy — | 5961ms, accuracy 5/5 | Speed vs reliability |
+| General Chat | 1299ms, $0 | ~1500ms, $ | Cost vs language quality |
+| RAG Generation | — | 1543ms, 5/5 | No alternative — accuracy is mandatory |
+
+**Cost vs Accuracy:**
+- General chat via Ollama: $0 per request, but risk of mixed-language responses
+- Planner via Ollama: $0 when it succeeds (~60–70%), ~$0.007 on fallback
+- Full multi-tool query: ~$0.02–0.03 (planner + tools + synthesis)
+- General chat only: $0 if Ollama succeeds, ~$0.005 on fallback
+
+---
+
+### 🚀 Future Improvements
+
+| # | Improvement | Description | Expected Impact |
+|---|-------------|-------------|-----------------|
+| 1 | **Caching** | Cache planner results for similar queries; cache RAG chunks for repeated product lookups | Reduce latency and API calls by 30–50% |
+| 2 | **Parallel execution** | Run independent tools concurrently (weather ∥ exchange) inside the executor | Cut multi-tool query latency |
+| 3 | **Smart model routing** | Lightweight classifier (regex/heuristic) to detect single-tool queries and skip the planner | Save ~5000ms and $0.007 on simple requests |
+| 4 | **Fine-tuning** | Train a small local model on planner JSON examples | Replace the OpenAI fallback, reduce cost |
+| 5 | **Circuit breaker** | Add circuit breaker + retry with exponential backoff for Python service calls | Improve reliability during transient failures |
+| 6 | **gRPC** | Replace HTTP with gRPC for TypeScript ↔ Python communication | Reduce per-call overhead by ~30–50ms |
+| 7 | **Managed vector DB** | Migrate from embedded ChromaDB to Pinecone/Qdrant/Weaviate | Production-grade scalability and persistence |
+| 8 | **Redis** | Replace `history.json` with Redis for conversation management | Scalability and data loss prevention |
+| 9 | **Score threshold** | Filter out low-similarity chunks before sending to RAG generation | Reduce noise and improve RAG answer accuracy |
+| 10 | **Query expansion** | Use an LLM to rephrase/expand the KB query before retrieval | Improve retrieval recall |
 
 ---
 
