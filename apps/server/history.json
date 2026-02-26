@@ -394,5 +394,17 @@
         "content": "The Smart Watch S5 features a 1.9-inch AMOLED display with a 484x396 resolution and always-on capability. It is powered by a dual-core 1.8GHz processor, has 2GB of RAM, and offers 32GB of internal storage. The watch boasts a 410mAh battery, providing up to 48 hours of typical use, which is highlighted as one of its best features. It is water resistant up to 5ATM, making it suitable for swimming, and weighs 42g (without the band) with dimensions of 44mm x 38mm x 10.7mm.\n\nHowever, while the battery life is excellent, users have noted that the band is uncomfortable to wear. Overall, the sentiment towards the Smart Watch S5 is mixed, with a review score of 6/10."
       }
     ]
+  },
+  "6abb7529-7bf0-401f-aedf-9f065823aa40": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "הי מה שלומך ?"
+      },
+      {
+        "role": "assistant",
+        "content": "היי! אני בסדר, תודה ששאלת. איך אפשר לעזור?"
+      }
+    ]
   }
 }
