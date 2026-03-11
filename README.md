@@ -8,11 +8,11 @@ ChatBot turns natural language into structured execution plans. A planner analyz
 
 ## 🧠 Core Concepts
 
-- **Planner** — Converts user input into a JSON execution plan (1–5 tool calls with dependency placeholders)
-- **Executor** — Runs tools sequentially, replacing `<result_from_tool_N>` placeholders between steps
-- **Synthesis** — Merges multi-tool results into one answer via OpenAI
-- **RAG** — Product queries are grounded in real documents via ChromaDB semantic search
-- **Hybrid LLM** — Ollama handles general chat locally (free); OpenAI handles planning, RAG, analysis, and synthesis
+- **Planner** - Converts user input into a JSON execution plan (1–5 tool calls with dependency placeholders)
+- **Executor** - Runs tools sequentially, replacing `<result_from_tool_N>` placeholders between steps
+- **Synthesis** - Merges multi-tool results into one answer via OpenAI
+- **RAG** - Product queries are grounded in real documents via ChromaDB semantic search
+- **Hybrid LLM** - Ollama handles general chat locally (free); OpenAI handles planning, RAG, analysis, and synthesis
 
 ## 🏗 Architecture
 
@@ -34,8 +34,8 @@ User → POST /api/chat → Planner → JSON plan
 - 🔗 **Multi-step orchestration** with inter-tool dependency resolution
 - 📚 **RAG** over product docs via ChromaDB + OpenAI grounded generation
 - 🌦 **Weather**, 💱 **exchange rates**, 🧮 **math**, 📝 **review analysis (ABSA)**, 💬 **general chat**
-- 🌍 **Bilingual** — auto-detects and responds in Hebrew or English
-- 🏠 **Local-first** — Ollama for free inference, OpenAI only where needed
+- 🌍 **Bilingual** - auto-detects and responds in Hebrew or English
+- 🏠 **Local-first** - Ollama for free inference, OpenAI only where needed
 
 ## 📊 ביצועים ועלויות (Performance & Cost)
 
@@ -65,15 +65,15 @@ Benchmarks measured on a local development environment. Latency is the average a
 
 | Latency source name   | Mapped to table row         |
 | --------------------- | --------------------------- |
-| Router (Ollama)       | Router (סיווג & תכנון) — Ollama |
-| Router (OpenAI)       | Router (סיווג & תכנון) — OpenAI |
+| Router (Ollama)       | Router (סיווג & תכנון) - Ollama |
+| Router (OpenAI)       | Router (סיווג & תכנון) - OpenAI |
 | Planner (Ollama)      | Same as Router (Ollama); in the current architecture the planner serves as the router |
 | Kb search             | RAG Retrieval (KB Search)   |
 | RAG generation        | RAG Generation (Answer)     |
 | General Chat          | General Chat                |
 | Orchestration synthesis | Orchestration Synthesis   |
 
-Review Sentiment (Basic) and Review Analysis (Full) had no latency data provided — marked as "—".
+Review Sentiment (Basic) and Review Analysis (Full) had no latency data provided - marked as "—".
 
 </details>
 
