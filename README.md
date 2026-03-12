@@ -1,318 +1,401 @@
-# ChatBot
+# ToolWeaver
+### 🧠 Planner-Orchestrated Bilingual Chatbot
 
-> A plan-orchestrated, bilingual chatbot that decomposes user queries into multi-step tool chains — powered by local and cloud LLMs.
+A plan-driven chatbot that converts natural-language queries into **multi-step tool workflows** and answers in **Hebrew or English** using a hybrid **local-first + cloud-fallback** LLM architecture.
 
-## 🚀 Overview
+ToolWeaver is designed to go beyond a single prompt/response chatbot. Instead of directly calling one model and hoping it handles everything, it:
 
-ChatBot turns natural language into structured execution plans. A planner analyzes every message, selects the right tools, resolves inter-step dependencies, and synthesizes a single coherent answer — all in Hebrew or English.
+- 🧭 generates a structured execution plan
+- 🔗 resolves dependencies between tool calls
+- ⚙️ executes tools step by step
+- 🧩 synthesizes one coherent final answer
+- 📚 grounds product answers through RAG over real documents
+- 🌍 works end-to-end in both Hebrew and English
 
-## 🧠 Core Concepts
+---
 
-- **Planner** - Converts user input into a JSON execution plan (1–5 tool calls with dependency placeholders)
-- **Executor** - Runs tools sequentially, replacing `<result_from_tool_N>` placeholders between steps
-- **Synthesis** - Merges multi-tool results into one answer via OpenAI
-- **RAG** - Product queries are grounded in real documents via ChromaDB semantic search
-- **Hybrid LLM** - Ollama handles general chat locally (free); OpenAI handles planning, RAG, analysis, and synthesis
+## 🚀 Why this project exists
 
-## 🏗 Architecture
+Most chatbot projects are thin wrappers around a single LLM call.
 
-```
+ToolWeaver explores a more structured approach: treat user queries as **execution problems**, not just prompts.
+
+Instead of relying on one model to answer everything directly, the system separates the problem into stages:
+
+1. **Planning** — decide which tools are needed
+2. **Execution** — run those tools in dependency-aware order
+3. **Synthesis** — combine results into one final answer
+
+This makes the system more:
+
+- 🧠 **interpretable** — the reasoning path is explicit
+- 🔧 **extensible** — new tools can be added without redesigning the app
+- 💸 **cost-aware** — local models handle cheap/common tasks first
+- 📐 **architecturally interesting** — orchestration and ML workloads are clearly separated
+
+---
+
+## ✨ Core capabilities
+
+- 🧭 **Planner-driven orchestration** — converts each message into a structured JSON tool plan
+- 🔗 **Dependency-aware execution** — supports placeholders such as `<result_from_tool_1>` between steps
+- 🌍 **Bilingual flow** — auto-detects Hebrew or English and responds in the same language
+- 📚 **Document-grounded RAG** — product queries are answered from indexed documents via ChromaDB retrieval
+- 🏠 **Local-first inference** — Ollama handles general chat locally when possible
+- ☁️ **Cloud fallback** — OpenAI handles planning, grounded generation, synthesis, and fallback reliability
+- 🧪 **Review analysis pipeline** — supports sentiment and aspect-level review analysis
+- 🧱 **Microservice split** — Bun/TypeScript for orchestration, Python for ML/NLP workloads
+
+---
+
+## 🏗 Architecture at a glance
+
+```text
 User → POST /api/chat → Planner → JSON plan
-  → Executor → Tool₁ → Tool₂ → ... → ToolN
-  → Synthesis (if multi-tool) → Response
+                    → Executor → Tool₁ → Tool₂ → ... → ToolN
+                    → Synthesis → Final response
 ```
+
+### 📦 Stack overview
 
 | Layer | Stack |
-|-------|-------|
+|---|---|
 | Frontend | React 19, Vite, Tailwind CSS |
 | Backend | Bun, Express 5, TypeScript, Zod |
 | AI / ML | Python (FastAPI), ChromaDB, sentence-transformers, DistilBERT |
-| LLM | Ollama (local) + OpenAI gpt-4.1 (cloud) |
+| LLM | Ollama (local) + OpenAI (cloud) |
 
-## ✨ Key Features
+### 🧩 Main architectural pieces
 
-- 🔗 **Multi-step orchestration** with inter-tool dependency resolution
-- 📚 **RAG** over product docs via ChromaDB + OpenAI grounded generation
-- 🌦 **Weather**, 💱 **exchange rates**, 🧮 **math**, 📝 **review analysis (ABSA)**, 💬 **general chat**
-- 🌍 **Bilingual** - auto-detects and responds in Hebrew or English
-- 🏠 **Local-first** - Ollama for free inference, OpenAI only where needed
-
-## 📊 ביצועים ועלויות (Performance & Cost)
-
-Benchmarks measured on a local development environment. Latency is the average across multiple runs. Quality is rated 1–5 based on output accuracy and relevance.
-
-| רכיב המערכת / תרחיש        | מודל (ספק)                   | זמן תגובה ממוצע (ms) | איכות / דיוק (1‑5) | עלות משוערת |
-| --------------------------- | ---------------------------- | -------------------- | ------------------- | ----------- |
-| Router (סיווג & תכנון)      | Ollama (Llama3)              | 4572ms                 | 5                   | 0           |
-| Router (סיווג & תכנון)      | OpenAI GPT-3.5 (Fallback)    | 5961ms                 | 5                   | $0.05           |
-| General Chat                | Ollama (Llama3)              | 1299ms                 | 4.7                   | 0           |
-| Review Sentiment (Basic)    | Hugging Face (Python)        | 2334ms                    | 4.5                 | 0           |
-| Review Analysis (Full)      | OpenAI GPT-3.5               | 12234ms                    | 5                   | $0.12           |
-| RAG Retrieval (KB Search)   | Hugging Face (Python)        | 392ms                  | 4.8                   | 0           |
-| RAG Generation (Answer)     | OpenAI GPT-3.5               | 1543ms                 | 5                   | $0.07           |
-| Orchestration Synthesis     | OpenAI GPT-3.5               | 1468ms                 | 4.5                   | $0.06           |
-
-**Key takeaways:**
-
-- Fastest: RAG Retrieval (392 ms) · Slowest: Router/Planner (~4500–6000 ms)
-- Ollama ~25% faster than OpenAI fallback for planning (4572 vs 5961 ms)
-- All local components (Ollama, Hugging Face, ChromaDB): zero API cost
-- OpenAI components consistently score 5/5 on quality at ~1500 ms
-- See [Analysis & Conclusions](#3-analysis--conclusions-extended) for architectural analysis of these results
-
-<details>
-<summary>Notes: latency data mappings</summary>
-
-| Latency source name   | Mapped to table row         |
-| --------------------- | --------------------------- |
-| Router (Ollama)       | Router (סיווג & תכנון) - Ollama |
-| Router (OpenAI)       | Router (סיווג & תכנון) - OpenAI |
-| Planner (Ollama)      | Same as Router (Ollama); in the current architecture the planner serves as the router |
-| Kb search             | RAG Retrieval (KB Search)   |
-| RAG generation        | RAG Generation (Answer)     |
-| General Chat          | General Chat                |
-| Orchestration synthesis | Orchestration Synthesis   |
-
-Review Sentiment (Basic) and Review Analysis (Full) had no latency data provided - marked as "—".
-
-</details>
-
-## 3. Analysis & Conclusions (Extended)
-
-An in-depth look at the architectural decisions, their consequences, and the trade-offs in this system. The analysis is grounded in the benchmark data above and the actual codebase.
+- **Planner** — converts user input into a JSON execution plan with 1–5 tool calls
+- **Executor** — runs tools sequentially and resolves placeholders between steps
+- **Synthesis** — merges multi-tool outputs into one coherent response
+- **RAG pipeline** — retrieves product knowledge from local indexed documents
+- **Hybrid model router** — uses Ollama first where possible and falls back to OpenAI when needed
 
 ---
 
-### 🧠 Model Selection: Local vs Cloud
+## 🔥 What makes this project interesting
 
-Each component uses the model that best fits its accuracy requirements, latency budget, and cost constraints:
+This is not just a chatbot UI over an LLM API.
 
-**Router/Planner — Ollama (primary) → OpenAI (fallback):**
-The planner produces a small JSON plan (~100–150 output tokens). We try Ollama first because it's faster (~4572ms vs ~5961ms) and free. The catch: Ollama doesn't always return valid JSON, so we automatically fall back to OpenAI when parsing fails. This saves API costs on roughly 60–70% of requests (when Ollama succeeds) while keeping reliability through the fallback. In `planner.service.ts`: Ollama is called with `timeoutMs: 30000`; if it fails or returns unparseable output, we switch to `gpt-4.1`.
+The project is interesting because it combines several engineering ideas in one system:
 
-**General Chat — Ollama (primary) → OpenAI (fallback):**
-Free-form conversation generates longer responses (~100–300 tokens). Routing every message through OpenAI would get expensive fast, so Ollama serves as the primary model (1299ms, $0). In `general-chat.service.ts`, there's a language-retry mechanism: if the response comes back in the wrong language, a second call is made with an explicit language instruction. If Ollama fails entirely (timeout/network), we fall back to OpenAI with `maxTokens: 300`.
-
-**RAG Retrieval — sentence-transformers + ChromaDB (fully local):**
-The fastest component in the system (392ms). Embedding generation is a compute task, not a generative one — the local model (`all-MiniLM-L6-v2`) handles it perfectly. ChromaDB stores vectors locally, so there's no external network call. This is the one place where running locally has zero trade-offs: no quality loss, no cost, minimal latency.
-
-**RAG Generation — OpenAI only:**
-Generating grounded answers demands high accuracy — the model must answer strictly from the retrieved chunks and never fabricate facts. `gpt-4.1` at `temperature: 0.3` provides strong instruction-following. Local models don't meet the bar for RAG grounding; the hallucination risk is too high.
-
-**Review Analysis — DistilBERT (basic) + OpenAI (full):**
-Basic sentiment (positive/negative) runs locally via DistilBERT in Python — fast and free. Full Aspect-Based Sentiment Analysis (ABSA) requires understanding aspects, opinions, and their relationships, plus a self-correction loop to fix malformed JSON output. That's too complex for a local model.
-
-**Synthesis — OpenAI only:**
-Merging results from multiple tools into a single coherent answer (1468ms). This requires strong instruction-following and factual consistency. `gpt-4.1` at `temperature: 0.5` allows some phrasing flexibility while preserving accuracy. If OpenAI fails, we fall back to concatenating the raw tool results — coherence is lost, but the information is preserved.
+- 🧠 **Explicit planning** instead of implicit “single-shot” reasoning
+- 🔗 **Multi-step tool chaining** with inter-step dependency resolution
+- 🌍 **End-to-end bilingual behavior** across planning, execution, and answer generation
+- 🏠☁️ **Hybrid local/cloud inference strategy** to balance cost, latency, and quality
+- 📚 **Grounded RAG answers** for product information instead of free-form hallucinated responses
+- 🧱 **Service separation** between orchestration logic and Python-based ML workloads
 
 ---
 
-### ⚙️ Microservices Architecture Impact
+## 🛠 Supported tools
 
-The system is split into three services: TypeScript server (orchestration), Python service (AI/ML), and Ollama (local LLM). Here's how that split plays out:
-
-**📈 Performance:**
-HTTP calls between TypeScript and Python add ~50–100ms of overhead per request (`/search_kb`, `/analyze`). But the separation lets us run heavy ML models (PyTorch, transformers) in a Python environment tuned for that workload, while orchestration runs on TypeScript/Bun, which is significantly faster for I/O and coordination. ChromaDB runs in-process with Python, so vector search doesn't require an additional network hop.
-
-**💰 Cost:**
-The Python service runs locally — embeddings and sentiment analysis are free. Only RAG generation, synthesis, and full review analysis hit the paid OpenAI API. The planner tries Ollama first, so OpenAI is only called as a fallback. A typical general chat request costs $0 (Ollama only). A full multi-tool query runs ~$0.02–0.03 (planner + tools + synthesis).
-
-**🔄 Flexibility:**
-Each tool is self-contained — adding a new one requires a schema update, a handler, and a service implementation. The Python service can be swapped out without touching the TypeScript orchestration layer. Each tool manages its own error handling and fallback logic independently.
-
-**📐 Scalability:**
-The Python service is stateful (models loaded in memory) but can be horizontally replicated. The TypeScript server is mostly stateless (except for `history.json`). ChromaDB is embedded — a production deployment would need a managed vector DB (Pinecone/Qdrant/Weaviate). User conversations don't share state (beyond the same `conversationId`).
-
-**🛡️ Failure Isolation:**
-If the Python service goes down, the TypeScript server keeps working — weather, exchange, math, and general chat still function. If Ollama is unavailable, the planner and general chat fall back to OpenAI. If a tool fails mid-plan, the executor handles it gracefully (falls back to `generalChat` or concatenates whatever succeeded). For synthesis: if OpenAI fails, results are concatenated as a fallback — less coherent, but no data is lost.
+| Tool | Purpose | Source / Notes |
+|---|---|---|
+| `getWeather` | Weather lookup | Open-Meteo API |
+| `getExchangeRate` | Currency rate lookup | Hardcoded rates |
+| `calculateMath` | Safe math evaluation | Parser-based, no `eval` |
+| `analyzeReview` | Review analysis / ABSA | OpenAI-based analysis |
+| `getProductInformation` | Product Q&A over docs | Python retrieval + OpenAI RAG |
+| `generalChat` | Free-form chat | Ollama primary → OpenAI fallback |
 
 ---
 
-### ⚖️ Trade-offs & Challenges
+## 🌍 Example use cases
 
-**Scheduling:**
-The executor runs tools sequentially because placeholder resolution (`<result_from_tool_1>`) requires results from previous steps. Dependent tools can't be parallelized by definition. Independent tools (e.g., weather + exchange) could theoretically run concurrently, but the current executor doesn't support that. The result: total latency for a multi-tool query equals the sum of all individual tool latencies.
-
-**Reliability:**
-The system uses cascading fallbacks: Ollama → OpenAI for the planner and general chat. But each fallback adds latency and cost. If the planner fails entirely, there's no plan — the system drops straight to `generalChat`, losing multi-tool capability. If synthesis fails, results are concatenated instead of merged. There's no automatic retry — a tool failure is final at the individual tool level.
-
-**Inter-service communication:**
-TypeScript ↔ Python communication is plain HTTP — no message queue, no retry. `/search_kb` and `/analyze` are single points of failure. There's no circuit breaker or health-check polling from the TypeScript side. If Python stops responding, the request times out and the user sees an error.
-
-**Inter-model communication:**
-The planner outputs JSON that must be parseable by the executor. If Ollama produces malformed JSON, parsing fails and we fall back to OpenAI. Placeholder resolution relies on string replacement, which is fragile if a tool's output happens to contain placeholder-like strings. Zod schema validation (`plan.schema.ts`) ensures the plan is structurally valid, but doesn't catch semantic errors.
-
-**Latency vs Quality:**
-
-| Component | Local (Ollama/HF) | Cloud (OpenAI) | Trade-off |
-|-----------|-------------------|----------------|-----------|
-| Planner | 4572ms, accuracy — | 5961ms, accuracy 5/5 | Speed vs reliability |
-| General Chat | 1299ms, $0 | ~1500ms, $ | Cost vs language quality |
-| RAG Generation | — | 1543ms, 5/5 | No alternative — accuracy is mandatory |
-
-**Cost vs Accuracy:**
-- General chat via Ollama: $0 per request, but risk of mixed-language responses
-- Planner via Ollama: $0 when it succeeds (~60–70%), ~$0.007 on fallback
-- Full multi-tool query: ~$0.02–0.03 (planner + tools + synthesis)
-- General chat only: $0 if Ollama succeeds, ~$0.005 on fallback
+- `מה מזג האוויר בלונדון ומה שער GBP ל-ILS?`
+- `Tell me about the Smart Watch S5.`
+- `נתח לי את הביקורת הזאת ותזהה אספקטים חיוביים ושליליים`
+- `What is 15% of 240, and should I take a coat to Paris tomorrow?`
 
 ---
 
-### 🚀 Future Improvements
+## 🧪 Example query flow
 
-| # | Improvement | Description | Expected Impact |
-|---|-------------|-------------|-----------------|
-| 1 | **Caching** | Cache planner results for similar queries; cache RAG chunks for repeated product lookups | Reduce latency and API calls by 30–50% |
-| 2 | **Parallel execution** | Run independent tools concurrently (weather ∥ exchange) inside the executor | Cut multi-tool query latency |
-| 3 | **Smart model routing** | Lightweight classifier (regex/heuristic) to detect single-tool queries and skip the planner | Save ~5000ms and $0.007 on simple requests |
-| 4 | **Fine-tuning** | Train a small local model on planner JSON examples | Replace the OpenAI fallback, reduce cost |
-| 5 | **Circuit breaker** | Add circuit breaker + retry with exponential backoff for Python service calls | Improve reliability during transient failures |
-| 6 | **gRPC** | Replace HTTP with gRPC for TypeScript ↔ Python communication | Reduce per-call overhead by ~30–50ms |
-| 7 | **Managed vector DB** | Migrate from embedded ChromaDB to Pinecone/Qdrant/Weaviate | Production-grade scalability and persistence |
-| 8 | **Redis** | Replace `history.json` with Redis for conversation management | Scalability and data loss prevention |
-| 9 | **Score threshold** | Filter out low-similarity chunks before sending to RAG generation | Reduce noise and improve RAG answer accuracy |
-| 10 | **Query expansion** | Use an LLM to rephrase/expand the KB query before retrieval | Improve retrieval recall |
+For a user query like:
+
+```text
+What's the weather in London and the GBP to ILS rate?
+```
+
+The system may execute a flow like this:
+
+1. 🧭 The planner receives the prompt and generates a JSON execution plan
+2. ⚙️ The executor calls `getWeather`
+3. ⚙️ The executor calls `getExchangeRate`
+4. 🧩 The synthesis layer combines both results into one final answer
+5. 🌍 The answer is returned in the user’s language
+
+For more complex workflows, later steps can reference previous tool outputs using placeholders such as:
+
+```text
+<result_from_tool_1>
+```
+
+That allows the executor to pass structured results from one step into the next.
 
 ---
 
-## ⚙️ How to Run
+## 🧠 Engineering highlights
+
+- ✅ JSON plan validation using **Zod**
+- 🔁 Cascading fallback strategy: **Ollama → OpenAI**
+- 🔗 Placeholder-based dependency resolution between tools
+- 📚 Local vector retrieval using **ChromaDB** + `sentence-transformers`
+- 🧱 Clean split between **TypeScript orchestration** and **Python ML services**
+- 🌍 Language-aware behavior for both Hebrew and English
+- 🛡 Safe math execution via parser rather than `eval`
+
+---
+
+## ⚖️ Key tradeoffs
+
+### Sequential execution vs speed
+The executor currently runs tool calls sequentially. This keeps dependency handling simple and predictable, but increases total latency for multi-step workflows.
+
+### Local inference vs reliability
+Ollama reduces cost and supports local-first execution, but it is less reliable for structured JSON generation. That is why planning and general chat include OpenAI fallback behavior.
+
+### Python service split vs operational simplicity
+Separating ML/NLP logic into Python makes model integration cleaner, but adds inter-service communication overhead and a larger failure surface.
+
+### Embedded vector store vs production readiness
+ChromaDB is convenient for local development and demos, but a production system would likely need a managed vector database.
+
+---
+
+## 📊 Performance and cost summary
+
+The full benchmark and architectural analysis are better treated as supporting documentation rather than the core README.
+
+### High-level takeaways
+
+- ⚡ **Fastest component:** local RAG retrieval
+- 🐢 **Slowest component:** planner / routing stage
+- 💸 **Cheapest path:** Ollama-only general chat
+- 🎯 **Most accurate path:** OpenAI-based RAG generation and synthesis
+- 🏠 **Best local wins:** retrieval and basic sentiment tasks
+- ☁️ **Best cloud use cases:** planning reliability, grounded generation, and final synthesis
+
+Detailed latency, cost, and architecture analysis can live in a separate document such as:
+
+```text
+docs/benchmarking-and-analysis.md
+```
+
+---
+
+## 🛡 Failure handling
+
+ToolWeaver is designed with practical fallback behavior rather than assuming every component always succeeds.
+
+### Current failure isolation behavior
+
+- If **Ollama** fails, planning/chat can fall back to **OpenAI**
+- If the **Python service** is unavailable, chat/weather/math may still work
+- If **synthesis** fails, raw tool results can still be concatenated
+- If a specific tool fails mid-plan, the system degrades rather than fully crashing when possible
+
+This is not full production-grade resilience yet, but it demonstrates deliberate fault-aware design.
+
+---
+
+## 🚀 Future improvements
+
+| # | Improvement | Why it matters |
+|---|---|---|
+| 1 | Caching | Reduce repeated planner and RAG costs |
+| 2 | Parallel execution | Run independent tools concurrently |
+| 3 | Smart routing | Skip planner for obvious single-tool queries |
+| 4 | Planner fine-tuning | Improve local planner reliability |
+| 5 | Circuit breaker + retry | Improve Python service reliability |
+| 6 | gRPC | Reduce TypeScript ↔ Python overhead |
+| 7 | Managed vector DB | Improve persistence and scalability |
+| 8 | Redis conversation store | Replace `history.json` for safer state handling |
+| 9 | Similarity thresholding | Improve retrieval precision |
+| 10 | Query expansion | Improve recall for KB search |
+
+---
+
+## ⚙️ How to run
 
 ### Prerequisites
 
-- **[Bun](https://bun.sh)** — JS runtime
-- **Python 3.10–3.12** with pip
+- **Bun**
+- **Python 3.10–3.12** with `pip`
 - **OpenAI API key**
-- **Ollama** (optional) — `ollama pull llama3.2`
+- **Ollama** (optional but recommended)
 
-### 1. Install Dependencies
+To use Ollama locally:
+
+```bash
+ollama pull llama3.2
+```
+
+### 1. Install dependencies
 
 ```bash
 bun install
 ```
 
-### 2. Configure Environment
+### 2. Configure environment
 
 Create `apps/server/.env`:
 
 ```env
 OPENAI_API_KEY=sk-your-key-here
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+PY_SERVICE_URL=http://localhost:8000
+DEFAULT_LOCALE=auto
+PORT=3000
 ```
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `OPENAI_API_KEY` | Yes | — | OpenAI API key |
-| `OLLAMA_URL` | No | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | No | `llama3.2` | Ollama model name |
-| `PY_SERVICE_URL` | No | `http://localhost:8000` | Python microservice URL |
-| `DEFAULT_LOCALE` | No | auto-detect | Force `he` or `en` |
-| `PORT` | No | `3000` | Server port |
-
-### 3. Python Service Setup
+### 3. Set up the Python service
 
 ```bash
 cd services/python
 py -3.12 -m venv .venv
+```
 
-# Windows
+**Windows**
+
+```bash
 .venv\Scripts\activate
+```
 
-# macOS/Linux
+**macOS / Linux**
+
+```bash
 source .venv/bin/activate
+```
 
+Then install dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 4. Index Knowledge Base (first time only)
+### 4. Index the knowledge base (first time only)
 
 ```bash
 cd services/python
 python index_kb.py --rebuild
 ```
 
-### 5. Start
+### 5. Start the services
+
+**Terminal 1 — Python microservice**
 
 ```bash
-# Terminal 1: Python microservice
 cd services/python
-.venv\Scripts\activate          # or: source .venv/bin/activate
+.venv\Scripts\activate   # Windows
 uvicorn server:app --host 0.0.0.0 --port 8000
+```
 
-# Terminal 2: TypeScript server + React client (from repo root)
+**Terminal 2 — backend + frontend**
+
+```bash
 bun run dev
 ```
 
-Client: `http://localhost:5173` — proxies `/api` to backend on port 3000.
+Client runs on:
+
+```text
+http://localhost:5173
+```
+
+---
 
 ## 📡 API
 
 ### `POST /api/chat`
 
+Request:
+
 ```json
 { "prompt": "What's the weather in London and the GBP to ILS rate?", "conversationId": "uuid-v4" }
 ```
+
+Response:
 
 ```json
 { "message": "London: 12°C, Partly cloudy. The GBP to ILS rate is 4.7000." }
 ```
 
-- `prompt`: string, 1–1000 chars (required)
-- `conversationId`: UUID v4 (required)
-- `/reset` as prompt clears conversation history
+### Request rules
 
-### Python Service
+- `prompt`: required, 1–1000 characters
+- `conversationId`: required, UUID v4
+- using `/reset` as the prompt clears conversation history
+
+### Python service endpoints
 
 | Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/analyze` | POST | Sentiment analysis (DistilBERT) |
-| `/search_kb` | POST | Knowledge base semantic search |
+|---|---|---|
+| `/analyze` | POST | Sentiment / review analysis |
+| `/search_kb` | POST | Semantic search over product docs |
 | `/health` | GET | Health check |
 
-## 📂 Project Structure
+---
 
-```
+## 📂 Project structure
+
+```text
 apps/server/          TypeScript backend — orchestration, tools, LLM clients
 apps/client/          React chat UI (Vite + Tailwind)
 services/python/      Python microservice — sentiment analysis, KB search
-data/products/        Product documents (3 .txt files) for RAG
+data/products/        Product documents for RAG
 docs/                 Architecture, validation queries, verification guide
 examples/sample_logs/ Multi-tool execution log examples
-scripts/dev.ts        Dev runner (concurrently starts server + client)
+scripts/dev.ts        Dev runner for server + client
 ```
 
-## 🔧 Tools
-
-| Tool | Source | Dependency |
-|------|--------|------------|
-| `getWeather` | `weather.service.ts` | Open-Meteo API (free) |
-| `getExchangeRate` | `exchange.service.ts` | Hardcoded rates |
-| `calculateMath` | `math.service.ts` | Pure parser (no `eval`) |
-| `analyzeReview` | `review-analyzer.service.ts` | OpenAI (ABSA) |
-| `getProductInformation` | `product-info.service.ts` | Python → OpenAI RAG |
-| `generalChat` | `general-chat.service.ts` | Ollama → OpenAI fallback |
+---
 
 ## 🐛 Troubleshooting
 
 | Problem | Fix |
-|---------|-----|
-| `Ollama not available` | Install Ollama + `ollama pull <model>`, or ignore (OpenAI fallback works) |
-| Ollama timeout | Increase `timeoutMs` in `general-chat.service.ts`, or use a smaller model |
-| `KB service initialization failed` | Run `python index_kb.py --rebuild` in `services/python/` |
-| Product queries empty | Start the Python service on port 8000 |
-| Mixed-language output | Use a model with better multilingual support, or rely on OpenAI fallback |
+|---|---|
+| Ollama not available | Install Ollama or rely on OpenAI fallback |
+| Ollama timeout | Increase timeout or use a smaller model |
+| KB service initialization failed | Run `python index_kb.py --rebuild` |
+| Product queries return empty | Make sure the Python service is running on port 8000 |
+| Mixed-language output | Use a stronger multilingual model or rely on fallback |
+
+---
 
 ## 🛠 Development
 
 ```bash
-bun run format                        # Format code
-cd apps/server && bun run build       # Type check
-cd apps/client && bun run lint        # Lint
+bun run format
+cd apps/server && bun run build
+cd apps/client && bun run lint
 ```
 
-Pre-commit hooks run `lint-staged` via Husky.
+---
 
-## 📎 Links
+## ✅ What this project demonstrates
 
-- [Server README](apps/server/README.md) — architecture, tools, benchmarks
-- [Architecture](docs/architecture.md) — flow diagrams
-- [Validation Queries](docs/validation_queries.md) — orchestration test scenarios
-- [Verification Guide](docs/verification_guide.md) — step-by-step verification
+ToolWeaver demonstrates more than a chat interface.
+
+It shows how to build a **planner-driven AI system** with:
+
+- 🧭 structured tool orchestration
+- 🔗 dependency-aware multi-step execution
+- 🌍 bilingual UX
+- 🏠☁️ hybrid local/cloud model routing
+- 📚 grounded RAG over local documents
+- 🧱 service separation across TypeScript and Python
+- ⚖️ explicit engineering tradeoffs around latency, cost, and reliability
+
+---
+
+## Summary
+
+**ToolWeaver** is a bilingual, plan-orchestrated chatbot that turns user queries into explicit tool workflows rather than single-shot model calls.
+
+Its main value is not just answering questions, but demonstrating how **planning, execution, fallback strategy, RAG grounding, and hybrid model routing** can be combined into a more structured AI application architecture.
+
