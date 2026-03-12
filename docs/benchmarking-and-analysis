@@ -1,0 +1,309 @@
+# Benchmarking and Architecture Analysis
+
+This document captures the performance, cost, and architectural trade-offs behind **ToolWeaver** — a planner-driven bilingual chatbot that combines **local-first inference**, **cloud fallback**, **RAG**, and **multi-step tool orchestration**.
+
+It is intended as a supporting document for the main README, focusing on:
+
+- latency characteristics
+- model-selection rationale
+- cost vs quality trade-offs
+- microservice architecture impact
+- failure isolation
+- current bottlenecks
+- future optimizations
+
+---
+
+## 📊 Benchmark summary
+
+Benchmarks were measured in a **local development environment** across multiple runs.
+
+Latency numbers should be treated as **directional engineering signals**, not production SLAs.  
+Quality scores are qualitative ratings based on output correctness, coherence, and task suitability.
+
+| Component / Scenario | Model / Provider | Avg Latency (ms) | Quality / Accuracy (1–5) | Estimated Cost |
+|---|---|---:|---:|---:|
+| Router / Planner | Ollama (Llama 3.x) | 4572 | 5.0 | 0 |
+| Router / Planner (fallback) | OpenAI GPT-3.5 / GPT-4.1 class | 5961 | 5.0 | $0.05 |
+| General Chat | Ollama (Llama 3.x) | 1299 | 4.7 | 0 |
+| Review Sentiment (basic) | Hugging Face / Python | 2334 | 4.5 | 0 |
+| Review Analysis (full) | OpenAI GPT-3.5 / GPT-4.1 class | 12234 | 5.0 | $0.12 |
+| RAG Retrieval (KB Search) | sentence-transformers + ChromaDB | 392 | 4.8 | 0 |
+| RAG Generation (Answer) | OpenAI GPT-3.5 / GPT-4.1 class | 1543 | 5.0 | $0.07 |
+| Orchestration Synthesis | OpenAI GPT-3.5 / GPT-4.1 class | 1468 | 4.5 | $0.06 |
+
+### Key takeaways
+
+- ⚡ **Fastest component:** local retrieval over ChromaDB (`~392 ms`)
+- 🐢 **Slowest component:** planner / router (`~4.5–6.0 s`) and full review analysis
+- 💸 **Cheapest path:** fully local chat / retrieval flow
+- 🎯 **Best accuracy path:** OpenAI-backed grounded generation and synthesis
+- 🏠 **Strongest local wins:** retrieval, basic sentiment, and low-cost chat
+- ☁️ **Cloud is most valuable where reliability and structured reasoning matter most**
+
+---
+
+## 🧠 Model selection: local vs cloud
+
+Each subsystem uses the model that best fits its **accuracy requirements**, **latency tolerance**, and **cost profile**.
+
+### Router / Planner — Ollama first, OpenAI fallback
+
+The planner produces a small JSON execution plan that typically contains 1–5 tool steps.
+
+**Why local first?**
+- planning is frequent
+- the output is short
+- avoiding API calls here saves meaningful cost over time
+
+**Why fallback?**
+- local models are less reliable for strict JSON generation
+- malformed output breaks the executor
+- OpenAI is used as a reliability layer when parsing fails
+
+### General Chat — Ollama first, OpenAI fallback
+
+General chat is the best place to prioritize local inference because:
+
+- it is cost-sensitive
+- it can generate longer responses
+- minor quality differences are more tolerable than in planning or grounded generation
+
+A fallback is still useful for:
+- timeout cases
+- network instability
+- mixed-language responses
+- instruction-following failures
+
+### RAG Retrieval — fully local
+
+Retrieval is handled locally using:
+- `sentence-transformers`
+- ChromaDB
+
+This is the strongest local component in the system because:
+- it is embedding + retrieval, not free-form generation
+- there is no major quality penalty
+- latency is low
+- cost is zero
+
+### RAG Generation — cloud only
+
+Grounded answer generation is the opposite case.
+
+This stage requires:
+- strong instruction-following
+- disciplined grounding to retrieved chunks
+- low hallucination rate
+- stable final phrasing
+
+That makes cloud inference the safer choice.
+
+### Review Analysis — split by complexity
+
+Basic sentiment can run locally, but full review analysis / ABSA needs:
+- aspect extraction
+- relation understanding
+- better structured output
+- recovery from malformed outputs
+
+That is a stronger fit for OpenAI-based generation.
+
+### Synthesis — cloud only
+
+The synthesis stage merges outputs from multiple tools into one coherent user-facing answer.
+
+This demands:
+- consistency
+- formatting control
+- instruction-following
+- good multilingual behavior
+
+Cloud models are the better fit here.
+
+---
+
+## ⚙️ Architecture impact
+
+ToolWeaver is split into three main runtime zones:
+
+1. **TypeScript / Bun orchestration service**
+2. **Python ML / NLP service**
+3. **Ollama local inference service**
+
+That split has clear advantages and costs.
+
+### Performance impact
+
+The TypeScript ↔ Python boundary adds overhead per request, but it allows each runtime to do what it is best at:
+
+- **Bun / TypeScript** handles orchestration, request flow, validation, and control logic efficiently
+- **Python** handles ML models, embeddings, and NLP tooling in a more natural ecosystem
+- **Ollama** enables local-first inference without sending every request to the cloud
+
+This architecture is a good fit for experimentation and modularity, even if it adds some latency.
+
+### Cost impact
+
+The architecture keeps several expensive tasks local:
+
+- general chat can stay local
+- retrieval is local
+- basic sentiment is local
+
+Paid API usage is concentrated where it matters most:
+
+- fallback planning
+- grounded generation
+- synthesis
+- higher-quality analysis
+
+That creates a useful cost profile:
+- cheap for simple chat
+- more expensive only for workflows that actually need stronger reasoning or grounding
+
+### Flexibility impact
+
+The separation improves extensibility:
+
+- new tools can be added independently
+- the Python service can evolve separately from orchestration
+- model-routing policy can change without rewriting the entire stack
+
+This is one of the strongest design benefits in the project.
+
+### Scalability impact
+
+Current architecture is good for local development and demos, but several areas would need upgrades for a production-style deployment:
+
+- embedded ChromaDB would likely be replaced
+- `history.json` is not durable enough for real scaling
+- service-to-service communication currently has limited resilience
+- retries and health-aware routing can be strengthened
+
+---
+
+## 🛡 Failure isolation and fallback behavior
+
+ToolWeaver is deliberately designed so that one component failing does not necessarily kill the whole user experience.
+
+### Current behavior
+
+- If **Ollama** fails → planner/general chat can fall back to **OpenAI**
+- If **Python** is down → weather, exchange, math, and some chat paths still work
+- If **synthesis** fails → tool outputs can still be concatenated
+- If a specific tool fails → the system can degrade instead of fully crashing in some flows
+
+### What this achieves
+
+This is not full production-grade resilience, but it demonstrates useful engineering instincts:
+
+- avoid single-shot catastrophic failure where possible
+- preserve partial value
+- isolate weaker components
+- keep fallback boundaries explicit
+
+---
+
+## 🔗 Orchestration cost: sequential execution
+
+The executor currently runs tool calls **sequentially**.
+
+This keeps placeholder-based dependency resolution simple and safe, but it has a cost:
+
+- total workflow latency becomes the sum of tool latencies
+- independent tools are not yet parallelized
+- planner + tools + synthesis can add noticeable end-to-end delay
+
+### Example
+
+A query like:
+- weather in London
+- plus GBP/ILS exchange rate
+- plus synthesis
+
+will take roughly:
+
+- planner time
+- plus weather time
+- plus FX time
+- plus synthesis time
+
+That is a reasonable trade-off for an early system because it keeps orchestration logic understandable.
+
+---
+
+## ⚖️ Main trade-offs
+
+### 1. Local cost savings vs reliability
+Local inference is cheaper, but cloud inference is more dependable for:
+- JSON generation
+- grounding
+- synthesis
+- structured outputs
+
+### 2. Simpler orchestration vs lower latency
+Sequential execution makes dependencies easy to handle, but limits performance for independent tools.
+
+### 3. Strong modularity vs larger failure surface
+Splitting services improves clarity and specialization, but creates more communication boundaries and failure points.
+
+### 4. Demo-friendly vector storage vs production readiness
+Embedded ChromaDB is excellent for local experimentation, but not the final shape for a scaled deployment.
+
+---
+
+## 🚧 Current bottlenecks
+
+### Planner latency
+The planner is one of the slowest stages in the system, especially when fallback is triggered.
+
+### Full review analysis
+Review analysis is expensive and slow because it combines richer reasoning with structured generation.
+
+### No parallel execution yet
+Independent tools still wait for each other because the executor is fully sequential.
+
+### Inter-service dependency
+The Python service is a required dependency for retrieval and analysis workflows, which concentrates risk on that boundary.
+
+---
+
+## 🚀 Future optimization directions
+
+| Improvement | Expected Impact |
+|---|---|
+| Caching planner outputs | Lower repeated planning cost and latency |
+| Caching retrieval results | Faster repeated product queries |
+| Parallel execution for independent steps | Lower multi-tool workflow latency |
+| Lightweight pre-router / heuristic classifier | Skip planner for obvious simple queries |
+| Planner fine-tuning or constrained decoding | Reduce malformed JSON and fallback rate |
+| Circuit breaker + retry | Improve resilience against transient Python failures |
+| gRPC instead of plain HTTP | Reduce service-call overhead |
+| Managed vector DB | Better persistence and production readiness |
+| Redis-based conversation store | Safer and more scalable state handling |
+| Similarity thresholding | Better retrieval precision |
+| Query expansion | Better recall for KB search |
+
+---
+
+## ✅ Final assessment
+
+ToolWeaver’s current architecture is a good example of **structured AI application design** rather than a thin LLM wrapper.
+
+Its strongest ideas are:
+
+- planner-driven orchestration
+- dependency-aware execution
+- hybrid local/cloud routing
+- grounded retrieval
+- explicit trade-off awareness
+
+Its biggest current limitations are:
+
+- planner latency
+- sequential execution
+- fallback dependence for reliability
+- limited production-grade resilience
+
+Overall, the system demonstrates a solid engineering direction: **use local inference where it is cheap and good enough, and reserve cloud inference for stages where correctness, structure, and reliability matter more**.
